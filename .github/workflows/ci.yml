@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Workspace packages expose types via ./dist/index.d.ts (top-level
+      # `types`), so workspace consumers can't resolve `@mnemehq/sdk` etc.
+      # until dist/ exists. Build first, then typecheck + test work.
+      - name: Build all publishable packages
+        run: bun run build
+
       - name: Lint
         run: bun run lint
 

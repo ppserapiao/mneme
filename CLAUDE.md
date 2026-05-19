@@ -133,13 +133,22 @@ Default branch is `main`. Pedro is not deeply technical with git/GitHub — Clau
 
 ### 3. Quality gates that block merge
 
-Before opening a PR — and again before squashing it — these MUST pass locally and in CI:
+Before opening a PR — and again before squashing it — these MUST pass locally and in CI, in this order:
 
 ```sh
-bun run build       # tsdown across every publishable package
+bun install
+bun run build       # REQUIRED FIRST — workspace consumers resolve types via ./dist/*.d.ts
 bun run lint        # biome check .
 bun run --filter '*' typecheck
 bun test
+```
+
+**Why build comes first**: every publishable `package.json` now points `main` / `types` / `exports` directly at `./dist/*` (ADR 0011 §3). Workspace consumers (e.g. `@mnemehq/sync-websocket` importing `@mnemehq/sdk`) resolve types and runtime through `./dist/index.{js,d.ts}` — those files don't exist on a fresh clone until `bun run build` runs. Skipping the build step leaves `bun test` and `tsc --noEmit` unable to resolve workspace imports.
+
+For active development, keep continuous builds running in a side terminal so the dist/ outputs stay fresh as you edit:
+
+```sh
+bun run --filter '*' dev    # runs `tsdown --watch` in every package
 ```
 
 If a check fails, fix the root cause. Do not skip hooks or disable the check.
