@@ -12,7 +12,8 @@
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "smoke": "bun run scripts/smoke-test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
