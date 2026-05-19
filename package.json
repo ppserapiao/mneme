@@ -17,6 +17,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/bun": "latest",
+    "publint": "^0.3.21",
     "tsdown": "^0.22.0",
     "typescript": "^5.7.2"
   },

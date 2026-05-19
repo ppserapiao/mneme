@@ -1,35 +1,32 @@
 {
   "name": "@mnemehq/mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model Context Protocol server for mneme — exposes the user-sovereign memory layer as MCP tools for Claude Code, Claude.ai, Cursor, and any MCP host.",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./src/index.ts",
   "bin": {
-    "mneme-mcp": "./src/index.ts"
+    "mneme-mcp": "./dist/index.js"
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsdown",
+    "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "prepublishOnly": "bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict"
   },
   "dependencies": {
-    "@mnemehq/sdk": "workspace:*",
+    "@mnemehq/sdk": "^0.1.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23"
   },
   "publishConfig": {
-    "access": "public",
-    "main": "./dist/index.js",
-    "bin": {
-      "mneme-mcp": "./dist/index.js"
-    }
+    "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppserapiao/mneme.git",
+    "url": "git+https://github.com/ppserapiao/mneme.git",
     "directory": "apps/mcp-server"
   },
   "keywords": ["mneme", "mcp", "model-context-protocol", "memory", "ai", "claude-code"]
