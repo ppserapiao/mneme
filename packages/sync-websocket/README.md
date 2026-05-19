@@ -2,7 +2,7 @@
 
 WebSocket transport for **mneme** sync and pairing. Two laptops on a LAN — pair and sync with no hosted infrastructure.
 
-> Status: `v0.0.1`. Built on `Bun.serve` for the server, standard `WebSocket` for the client. Pairs with [`@mneme/sdk`](../sdk) v0.0.7+.
+> Status: `v0.1.0` — first npm release. Built on `Bun.serve` for the server, standard `WebSocket` for the client. Pairs with [`@mneme/sdk`](../sdk) v0.1.0+.
 
 ## Install
 

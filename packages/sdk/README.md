@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.7`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network transports ship in the companion [`@mneme/sync-websocket`](../sync-websocket) package; hosted backend lands in v0.1.0.
+> Status: `v0.1.0` — first npm release. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network transports ship in the companion [`@mneme/sync-websocket`](../sync-websocket) package; hosted backend lands in v0.2.0.
 
 ## Install
 

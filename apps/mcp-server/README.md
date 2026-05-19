@@ -2,29 +2,26 @@
 
 Model Context Protocol server for **mneme** — exposes the user-sovereign memory layer as MCP tools so any MCP host (Claude Code, Claude.ai, Cursor, future Anthropic agents) can remember, recall, forget, and supersede memory on the user's behalf.
 
-> Status: `v0.0.1`. Wraps `@mneme/sdk` v0.0.4. Runs as a stdio MCP server.
+> Status: `v0.1.0` — first npm release. Wraps `@mneme/sdk` v0.1.0. Runs as a stdio MCP server.
 
 ## Install in Claude Code
 
-The fastest path: clone the repo and point Claude Code at the entry script.
+The fastest path — one command, no clone, no install:
 
 ```sh
-git clone https://github.com/ppserapiao/mneme
-cd mneme
-bun install
-
-# Plaintext local mode — quickest to try
-claude mcp add mneme bun -- run apps/mcp-server/src/index.ts
+claude mcp add mneme -- npx -y @mneme/mcp-server
 ```
 
-Or add the equivalent stanza to `~/.claude.json`:
+That registers the server, fetches the published tarball on first run, and starts speaking JSON-RPC over stdio. The `-y` keeps npx from prompting.
+
+Or add the equivalent stanza to `~/.claude.json` directly:
 
 ```json
 {
   "mcpServers": {
     "mneme": {
-      "command": "bun",
-      "args": ["run", "/absolute/path/to/mneme/apps/mcp-server/src/index.ts"]
+      "command": "npx",
+      "args": ["-y", "@mneme/mcp-server"]
     }
   }
 }
@@ -36,14 +33,28 @@ For encryption at rest, pass a passphrase via env:
 {
   "mcpServers": {
     "mneme": {
-      "command": "bun",
-      "args": ["run", "/absolute/path/to/mneme/apps/mcp-server/src/index.ts"],
+      "command": "npx",
+      "args": ["-y", "@mneme/mcp-server"],
       "env": {
         "MNEME_PASSPHRASE": "correct horse battery staple"
       }
     }
   }
 }
+```
+
+Requires [Bun](https://bun.sh) `>= 1.3` on the PATH (the server uses `bun:sqlite`). Bun is also what `npx` runs the shebanged entry under.
+
+### Local development / contributor mode
+
+To run from a checkout instead of npm:
+
+```sh
+git clone https://github.com/ppserapiao/mneme
+cd mneme
+bun install
+
+claude mcp add mneme bun -- run apps/mcp-server/src/index.ts
 ```
 
 The first time the server runs with a passphrase against a fresh store, it prints the **24-word recovery phrase** to stderr exactly once. Save it — losing both the passphrase and the recovery phrase loses the store permanently.
@@ -81,7 +92,6 @@ Every handler returns its result as a single JSON-stringified text content block
 - Embedder configuration via env (defer until Bun + onnxruntime cleanup crash is resolved, ADR 0004 §4)
 - HTTP transport in addition to stdio (for browser MCP hosts)
 - Per-tool annotations exposing read-only / destructive hints to the host
-- Once `npm publish` is in place: `npx @mneme/mcp-server` as a zero-install run target
 
 ## License
 

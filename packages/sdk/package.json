@@ -1,6 +1,6 @@
 {
   "name": "@mneme/sdk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TypeScript SDK for the Mneme Protocol — local-first, user-sovereign memory for AI apps.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,9 +13,9 @@
       "import": "./src/index.ts"
     }
   },
-  "files": ["src", "README.md", "LICENSE"],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -27,11 +27,20 @@
     "ulid": "^2.3.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mneme-dev/mneme.git",
+    "url": "https://github.com/ppserapiao/mneme.git",
     "directory": "packages/sdk"
   },
   "keywords": ["mneme", "memory", "ai", "sdk", "local-first", "sqlite"]

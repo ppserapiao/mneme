@@ -1,6 +1,6 @@
 {
   "name": "@mneme/sync-websocket",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "WebSocket transport for mneme sync and pairing. Two laptops on a LAN — pair and sync with no hosted infrastructure.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,8 +13,9 @@
       "import": "./src/index.ts"
     }
   },
-  "files": ["src", "README.md", "LICENSE"],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
+    "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -22,7 +23,16 @@
     "@mneme/sdk": "workspace:*"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
   },
   "repository": {
     "type": "git",

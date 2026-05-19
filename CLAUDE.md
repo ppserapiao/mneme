@@ -136,12 +136,62 @@ Default branch is `main`. Pedro is not deeply technical with git/GitHub — Clau
 Before opening a PR — and again before squashing it — these MUST pass locally and in CI:
 
 ```sh
+bun run build       # tsdown across every publishable package
 bun run lint        # biome check .
 bun run --filter '*' typecheck
 bun test
 ```
 
 If a check fails, fix the root cause. Do not skip hooks or disable the check.
+
+### Publishing to npm (runbook)
+
+We publish under the `@mneme` scope on npmjs.com. The full rationale is in [ADR 0011](./decisions/0011-npm-publishing.md); this is the operational sequence.
+
+**Prerequisites**
+
+1. The `@mneme` org exists on npmjs.com and Pedro is an owner.
+2. The publishing machine has run `npm login` with an account that has publish rights to the scope.
+3. `git status` is clean and the PR with the version bumps has been merged to `main`.
+
+**Procedure**
+
+```sh
+# 1. From a clean checkout of main
+git checkout main && git pull --ff-only
+
+# 2. Quality gates (must all pass)
+bun install
+bun run lint
+bun run --filter '*' typecheck
+bun test
+bun run build
+
+# 3. Verify what each package will ship (no surprises)
+for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+  echo "=== $pkg ==="
+  (cd "$pkg" && npm pack --dry-run 2>&1 | grep -E "📦|kB|files:")
+done
+
+# 4. Publish in topological order. Foundational packages first.
+(cd packages/protocol         && npm publish)
+(cd packages/sdk              && npm publish)
+(cd packages/embedder-local   && npm publish)
+(cd packages/sync-websocket   && npm publish)
+(cd apps/mcp-server           && npm publish)
+
+# 5. Tag the monorepo + GitHub release
+git tag -a vX.Y.Z -m "vX.Y.Z — short summary"
+git push origin vX.Y.Z
+gh release create vX.Y.Z --generate-notes
+```
+
+**Conventions**
+
+- `publishConfig` in each `package.json` swaps `main`/`types`/`exports`/`bin` from `./src/index.ts` (workspace dev) to `./dist/index.js` (consumer). Never touch the dist paths in workspace dev; never touch the src paths in published output.
+- Tarball contents are `["dist", "README.md", "LICENSE"]` — nothing else. If `npm pack --dry-run` lists test files or source files, stop and fix the `files` array before publishing.
+- Once a version is on npm it cannot be unpublished cleanly after 72 hours. Treat the dry-run output as a gate, not a formality.
+- After publish, update `project_mneme_current_state.md` memory with the new versions and any deferred-list changes.
 
 ### 4. Memory hygiene
 

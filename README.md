@@ -44,6 +44,24 @@ mneme/
 
 The boundary between `packages/protocol` and everything else is the boundary we publish as the **mneme Protocol** — a versioned, open spec at `docs/protocol/`.
 
+## Install
+
+```sh
+# Core SDK
+bun add @mneme/sdk
+
+# Optional on-device embeddings
+bun add @mneme/embedder-local
+
+# Optional WebSocket transport for multi-device sync + pairing
+bun add @mneme/sync-websocket
+
+# MCP server for Claude Code / Cursor / any MCP host — no install required
+npx @mneme/mcp-server
+```
+
+All five packages are published to npm under `@mneme/*`. Requires [Bun](https://bun.sh) `>= 1.3` at runtime (the SDK and transports use `bun:sqlite` and Bun-native WebSockets).
+
 ## Quickstart
 
 ```ts
@@ -76,11 +94,7 @@ All concerns — encryption, recovery, semantic recall, multi-device sync, devic
 ### Use it from Claude Code (MCP)
 
 ```sh
-git clone https://github.com/ppserapiao/mneme
-cd mneme
-bun install
-
-claude mcp add mneme bun -- run apps/mcp-server/src/index.ts
+claude mcp add mneme -- npx -y @mneme/mcp-server
 ```
 
 Now `mneme_remember`, `mneme_recall`, `mneme_get`, `mneme_forget`, `mneme_supersede`, `mneme_export` are available as MCP tools in Claude Code. See [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for the encrypted-mode setup.

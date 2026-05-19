@@ -39,3 +39,4 @@ Briefly, with the reason each was rejected.
 | 0008  | [Sync engine design](./0008-sync-engine-design.md) | Accepted |
 | 0009  | [Multi-device pairing ceremony](./0009-multi-device-pairing-ceremony.md) | Accepted |
 | 0010  | [WebSocket transport for sync and pairing](./0010-websocket-transport.md) | Accepted |
+| 0011  | [npm publishing strategy](./0011-npm-publishing.md) | Accepted |
