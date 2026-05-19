@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.6`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, and pluggable on-device semantic recall. Network transports + hosted backend land in v0.0.7+.
+> Status: `v0.0.7`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network sync transports + hosted backend land in v0.0.8+.
 
 ## Install
 
@@ -90,6 +90,43 @@ const matches = await mneme.recall('feedback style on pull requests')
 ```
 
 When an `embedder` is configured, every plaintext `remember()` persists an embedding and `recall()` ranks by cosine similarity. Without one, `recall()` falls back to SQLite FTS5 BM25.
+
+## Multi-device pairing
+
+Before two devices can sync **encrypted** memories, they need the same master key. Pairing transfers it from a paired device A to a fresh device B over an untrusted channel, with a 6-digit Short Authentication String (SAS) the user verifies on both screens.
+
+```ts
+// === DEVICE A (already set up with passphrase) ===
+const session = alice.beginPairing()
+// Hand `session.invite` to device B (QR code, file, side channel — any transport)
+
+// After B sends back its `response`:
+const completed = await session.complete(responseFromB)
+console.log('Verify this matches device B:', completed.sas) // 6 digits
+
+// User confirms SAS matches on both devices → commit
+const bundle = await completed.commit()
+// Send `bundle` back to B
+```
+
+```ts
+// === DEVICE B (fresh, no keyring yet) ===
+const accepted = await Mneme.acceptPairing(inviteFromA)
+console.log('Verify this matches device A:', accepted.sas) // 6 digits
+// Send `accepted.response` to A
+
+// Once A's bundle arrives:
+const { mneme: bob, recoveryPhrase } = await accepted.finalize(bundle, {
+  path: '/path/to/b.sqlite',
+  passphrase: 'bob-passphrase',
+})
+console.log('SAVE THIS:', recoveryPhrase) // B's OWN 24-word phrase
+console.log(bob.publicKey === alice.publicKey) // true — same master key
+```
+
+After pairing, B has its own keyring (own passphrase, own recovery phrase) wrapping the **same master key** as A — so `bob.publicKey === alice.publicKey`, and the standard `alice.sync(bob.asPeer())` exchanges records that decrypt cleanly on both sides.
+
+The cryptographic design (X25519 ECDH + HKDF-SHA256 + AES-256-GCM, 6-digit SAS, 5-minute session expiry, replay protection) is in [ADR 0009](../../decisions/0009-multi-device-pairing-ceremony.md). **Always verify the SAS on a side channel** the user trusts (in person, voice call, signed Signal message) — if you skip verification, an active MITM can substitute their own keys.
 
 ## Sync (multi-device, transport-agnostic)
 
