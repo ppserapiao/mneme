@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.2`. Local-only, plaintext, no encryption or sync yet, but semantic recall is in via the pluggable embedder interface. The API surface is stable; everything below it will gain encryption (v0.1), sync (v0.2), and hosted backends (v0.3).
+> Status: `v0.0.3`. Local-only, but now with **opt-in AES-256-GCM encryption at rest** and pluggable on-device semantic recall. Sync engine and hosted backends still ahead.
 
 ## Install
 
@@ -38,6 +38,28 @@ By default the SDK writes to a platform-appropriate location:
 
 Pass `path: ':memory:'` for an ephemeral store (recommended in tests).
 
+## Encryption at rest (opt-in)
+
+Pass a `passphrase` through the async `Mneme.open()` factory. Bodies are sealed with AES-256-GCM, per-record data keys are wrapped under a master key derived from the passphrase via Argon2id, and the AAD binds each record's id.
+
+```ts
+import { Mneme } from '@mneme/sdk'
+
+const mneme = await Mneme.open({ passphrase: 'correct horse battery staple' })
+
+await mneme.remember({ kind: 'fact', body: 'london resident' })
+const back = await mneme.get(/* id */)
+console.log(back?.body) // { mode: 'plaintext', data: 'london resident' }
+
+// On disk, the body column is ciphertext only. The plaintext above is the
+// SDK decrypting transparently before returning to the caller.
+```
+
+- The synchronous `new Mneme()` constructor throws if you pass a passphrase — encryption requires the async factory by design.
+- Wrong passphrase on reopen raises `MnemeError` with code `unauthorized` before any record is touched.
+- **v0.0.3 has no recovery phrase yet.** Losing your passphrase loses the store. BIP-39 recovery + signed writes land in v0.0.4. See [ADR 0005](../../decisions/0005-encryption-envelope-v0-3.md).
+- Lexical BM25 recall is silently empty under encryption (FTS5 cannot index ciphertext). Combine with `@mneme/embedder-local` for semantic recall over encrypted memory — embeddings are computed pre-encryption.
+
 ## Semantic recall (opt-in)
 
 Install [`@mneme/embedder-local`](../embedder-local) and pass it in:
@@ -67,6 +89,12 @@ new Mneme({
   ownerId?: string      // default: 'local'
   clock?: Clock         // default: systemClock — override in tests
   embedder?: Embedder   // default: undefined — falls back to lexical BM25 search
+})
+
+await Mneme.open({
+  // …same options as above, plus:
+  passphrase?: string   // when set, encryption-at-rest is enabled
+  kdfParams?: KdfParams // optional Argon2id tuning; defaults to OWASP interactive
 })
 ```
 

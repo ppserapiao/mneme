@@ -65,4 +65,17 @@ CREATE TRIGGER IF NOT EXISTS memories_fts_delete
 BEGIN
   DELETE FROM memories_fts WHERE id = OLD.id;
 END;
+
+CREATE TABLE IF NOT EXISTS crypto_metadata (
+  id                  INTEGER PRIMARY KEY CHECK (id = 1),
+  salt                BLOB    NOT NULL,
+  verifier_ciphertext BLOB    NOT NULL,
+  verifier_nonce      BLOB    NOT NULL,
+  kdf_algorithm       TEXT    NOT NULL DEFAULT 'argon2id',
+  kdf_memory_kib      INTEGER NOT NULL,
+  kdf_iterations      INTEGER NOT NULL,
+  kdf_parallelism     INTEGER NOT NULL,
+  kdf_output_length   INTEGER NOT NULL,
+  created_at          TEXT    NOT NULL
+);
 `

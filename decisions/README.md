@@ -33,3 +33,4 @@ Briefly, with the reason each was rejected.
 | 0002  | [Local-first SDK before hosted API](./0002-local-first-sdk-before-hosted-api.md) | Accepted |
 | 0003  | [Systematic operating procedure](./0003-systematic-operating-procedure.md) | Accepted |
 | 0004  | [Local-first embedding strategy](./0004-local-first-embedding-strategy.md) | Accepted |
+| 0005  | [Encryption envelope (v0.0.3)](./0005-encryption-envelope-v0-3.md) | Accepted |

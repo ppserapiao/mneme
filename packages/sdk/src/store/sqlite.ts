@@ -20,6 +20,17 @@ import {
   type WriteInput,
 } from '@mneme/protocol'
 import { ulid } from 'ulid'
+import {
+  DEFAULT_KDF_PARAMS,
+  type KdfParams,
+  MasterKey,
+  type MasterKeyMeta,
+  decrypt,
+  encrypt,
+  fromBase64Url,
+  generateDataKey,
+  toBase64Url,
+} from '../crypto'
 import { cosineSimilarity } from '../embedder/cosine'
 import type { Embedder } from '../embedder/types'
 import { type Clock, systemClock } from '../util/clock'
@@ -57,10 +68,22 @@ type MemoryRow = {
   forget_at: string | null
 }
 
+type CryptoMetaRow = {
+  salt: Uint8Array
+  verifier_ciphertext: Uint8Array
+  verifier_nonce: Uint8Array
+  kdf_algorithm: string
+  kdf_memory_kib: number
+  kdf_iterations: number
+  kdf_parallelism: number
+  kdf_output_length: number
+}
+
 export class SqliteStore implements MnemeStore {
   private readonly db: Database
   private readonly clock: Clock
   private readonly embedder: Embedder | undefined
+  private masterKey: MasterKey | undefined
 
   constructor(options: SqliteStoreOptions) {
     ensureParentDir(options.path)
@@ -73,21 +96,104 @@ export class SqliteStore implements MnemeStore {
     this.db.exec(SCHEMA_V1)
   }
 
+  /**
+   * Initialise — or re-derive — the master key for this store.
+   *
+   * If `crypto_metadata` has no row yet, this is a fresh encrypted store:
+   * a salt + verifier are generated and persisted using `kdfParams`.
+   *
+   * If a row exists, the master key is re-derived from `passphrase` against
+   * the stored salt and verified against the stored verifier. A wrong
+   * passphrase throws before any record is touched.
+   *
+   * Must be called before any `write`/`read`/`search` that should be
+   * encrypted. Idempotent — calling again with the same passphrase succeeds.
+   */
+  async openMasterKey(
+    passphrase: string,
+    kdfParams: KdfParams = DEFAULT_KDF_PARAMS,
+  ): Promise<void> {
+    const existing = this.db
+      .query<CryptoMetaRow, []>(
+        `SELECT salt, verifier_ciphertext, verifier_nonce,
+                kdf_algorithm, kdf_memory_kib, kdf_iterations,
+                kdf_parallelism, kdf_output_length
+           FROM crypto_metadata WHERE id = 1`,
+      )
+      .get()
+
+    if (existing) {
+      if (existing.kdf_algorithm !== 'argon2id') {
+        throw new MnemeError(
+          'storage_failure',
+          `unsupported KDF algorithm: ${existing.kdf_algorithm}`,
+        )
+      }
+      const meta: MasterKeyMeta = {
+        salt: new Uint8Array(existing.salt),
+        verifier: {
+          ciphertext: new Uint8Array(existing.verifier_ciphertext),
+          nonce: new Uint8Array(existing.verifier_nonce),
+        },
+        kdfParams: {
+          memoryKiB: existing.kdf_memory_kib,
+          iterations: existing.kdf_iterations,
+          parallelism: existing.kdf_parallelism,
+          outputLength: existing.kdf_output_length,
+        },
+      }
+      try {
+        this.masterKey = await MasterKey.open(passphrase, meta)
+      } catch {
+        throw new MnemeError('unauthorized', 'wrong passphrase for encrypted store')
+      }
+      return
+    }
+
+    const { masterKey, meta } = await MasterKey.initialise(passphrase, kdfParams)
+    this.db
+      .prepare(
+        `INSERT INTO crypto_metadata (
+           id, salt, verifier_ciphertext, verifier_nonce,
+           kdf_algorithm, kdf_memory_kib, kdf_iterations,
+           kdf_parallelism, kdf_output_length, created_at
+         ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        meta.salt,
+        meta.verifier.ciphertext,
+        meta.verifier.nonce,
+        'argon2id',
+        meta.kdfParams.memoryKiB,
+        meta.kdfParams.iterations,
+        meta.kdfParams.parallelism,
+        meta.kdfParams.outputLength,
+        this.clock.now().toISOString(),
+      )
+    this.masterKey = masterKey
+  }
+
+  /** Whether encryption is active on this store. */
+  get encrypted(): boolean {
+    return this.masterKey !== undefined
+  }
+
   async write(input: WriteInput): Promise<MemoryRecord> {
     const now = this.clock.now()
     const id = MemoryIdSchema.parse(ulid(now.getTime()))
     const embedding = await this.embedIfPossible(input.body)
-    const record = MemoryRecordSchema.parse({
+    const persistedBody = await this.encryptForPersistence(input.body, id)
+    const persistedRecord = MemoryRecordSchema.parse({
       id,
       ownerId: input.ownerId,
       kind: input.kind,
-      body: input.body,
+      body: persistedBody,
       metadata: buildMetadata(input, now),
       lifecycle: {},
       ...(embedding ? { embedding } : {}),
     })
-    this.insertRecord(record)
-    return record
+    this.insertRecord(persistedRecord)
+    return this.decryptForReturn(persistedRecord)
   }
 
   async read(ownerId: OwnerId, id: MemoryId): Promise<MemoryRecord | null> {
@@ -97,7 +203,7 @@ export class SqliteStore implements MnemeStore {
       )
       .get(ownerId, id)
     if (!row) return null
-    return rowToRecord(row)
+    return this.decryptForReturn(rowToRecord(row))
   }
 
   async search(input: SearchInput): Promise<SearchResult[]> {
@@ -138,6 +244,9 @@ export class SqliteStore implements MnemeStore {
       .all(...params)
 
     return rows.map((row) => ({
+      // Lexical search runs only when there is no embedder. The store is
+      // therefore plaintext at rest from this path's perspective; we still
+      // pass through `decryptForReturn` in case the caller mixed modes.
       record: rowToRecord(row),
       // Convert SQLite BM25 (lower = better) to "higher = better" by negating.
       score: -row.rank,
@@ -179,7 +288,7 @@ export class SqliteStore implements MnemeStore {
       )
       if (candidateVec.length !== queryVec.length) continue
       const score = cosineSimilarity(queryVec, candidateVec)
-      ranked.push({ record: rowToRecord(row), score })
+      ranked.push({ record: await this.decryptForReturn(rowToRecord(row)), score })
     }
     ranked.sort((a, b) => b.score - a.score)
     return ranked.slice(0, limit)
@@ -220,11 +329,12 @@ export class SqliteStore implements MnemeStore {
     const now = this.clock.now()
     const newId = MemoryIdSchema.parse(ulid(now.getTime()))
     const embedding = await this.embedIfPossible(input.replacement.body)
+    const persistedBody = await this.encryptForPersistence(input.replacement.body, newId)
     const replacement = MemoryRecordSchema.parse({
       id: newId,
       ownerId: input.replacement.ownerId,
       kind: input.replacement.kind,
-      body: input.replacement.body,
+      body: persistedBody,
       metadata: buildMetadata(input.replacement, now),
       lifecycle: {},
       ...(embedding ? { embedding } : {}),
@@ -245,7 +355,7 @@ export class SqliteStore implements MnemeStore {
         .run(JSON.stringify(previousLifecycle), newId, input.ownerId, input.supersededId)
     })
     tx()
-    return replacement
+    return this.decryptForReturn(replacement)
   }
 
   async *export(input: ExportInput): AsyncIterable<MemoryRecord> {
@@ -258,12 +368,72 @@ export class SqliteStore implements MnemeStore {
       )
       .all(input.ownerId, since)
     for (const row of rows) {
-      yield rowToRecord(row)
+      yield await this.decryptForReturn(rowToRecord(row))
     }
   }
 
   close(): void {
     this.db.close()
+  }
+
+  /**
+   * Encrypt a plaintext body using a freshly generated per-record data key
+   * wrapped by the master key. Returns the input untouched when no master
+   * key is configured or when the body is already encrypted.
+   *
+   * AAD binds the record id so a ciphertext cannot be swapped between records.
+   */
+  private async encryptForPersistence(body: Payload, recordId: string): Promise<Payload> {
+    if (!this.masterKey) return body
+    if (body.mode !== 'plaintext') return body
+
+    const dataKey = generateDataKey()
+    const plaintextBytes = new TextEncoder().encode(body.data)
+    const aad = new TextEncoder().encode(recordId)
+    const sealed = await encrypt(plaintextBytes, dataKey, aad)
+    const wrapped = await this.masterKey.wrap(dataKey)
+
+    // The wrapped data key has its own nonce + ciphertext. Pack them into a
+    // single base64url string for the protocol's `wrappedKey` field by
+    // concatenating nonce (12 bytes) || wrappedCiphertext.
+    const packedWrap = new Uint8Array(wrapped.nonce.length + wrapped.ciphertext.length)
+    packedWrap.set(wrapped.nonce, 0)
+    packedWrap.set(wrapped.ciphertext, wrapped.nonce.length)
+
+    return {
+      mode: 'aes-gcm-256',
+      ciphertext: toBase64Url(sealed.ciphertext),
+      nonce: toBase64Url(sealed.nonce),
+      wrappedKey: toBase64Url(packedWrap),
+      aad: toBase64Url(aad),
+    }
+  }
+
+  /**
+   * Decrypt the body of a record when this store has a master key and the
+   * persisted body is in `aes-gcm-256` mode. Returns the record unchanged
+   * when there is no master key or the body is already plaintext.
+   */
+  private async decryptForReturn(record: MemoryRecord): Promise<MemoryRecord> {
+    if (!this.masterKey) return record
+    if (record.body.mode !== 'aes-gcm-256') return record
+
+    const ciphertext = fromBase64Url(record.body.ciphertext)
+    const nonce = fromBase64Url(record.body.nonce)
+    const packedWrap = fromBase64Url(record.body.wrappedKey)
+    const wrappedNonce = packedWrap.slice(0, 12)
+    const wrappedCiphertext = packedWrap.slice(12)
+    const dataKey = await this.masterKey.unwrap({
+      nonce: wrappedNonce,
+      ciphertext: wrappedCiphertext,
+    })
+    const aad = record.body.aad ? fromBase64Url(record.body.aad) : undefined
+    const plaintextBytes = await decrypt(ciphertext, nonce, dataKey, aad)
+    const plaintext = new TextDecoder().decode(plaintextBytes)
+    return {
+      ...record,
+      body: { mode: 'plaintext', data: plaintext },
+    }
   }
 
   /**

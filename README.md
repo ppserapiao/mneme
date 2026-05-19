@@ -48,18 +48,23 @@ The boundary between `packages/protocol` and everything else is the boundary we 
 import { Mneme } from '@mneme/sdk'
 import { LocalEmbedder } from '@mneme/embedder-local'
 
-const mneme = new Mneme({ embedder: new LocalEmbedder() })
+const mneme = await Mneme.open({
+  passphrase: 'correct horse battery staple', // optional — encrypts at rest
+  embedder: new LocalEmbedder(),              // optional — enables semantic recall
+})
 
 await mneme.remember({
   kind: 'preference',
   body: 'Prefers concise code review comments',
 })
 
-// "feedback style" never appears verbatim — semantic recall finds it anyway.
+// Body is sealed with AES-256-GCM on disk; "feedback style" never appears in
+// any column. Semantic recall finds it anyway because embeddings are computed
+// pre-encryption.
 const matches = await mneme.recall('feedback style on pull requests')
 ```
 
-`@mneme/embedder-local` is optional. Without it, `recall()` falls back to lexical BM25 via SQLite FTS5 — useful for keyword search and zero-dependency local mode.
+Both options are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.open({ passphrase })` requires the async factory and persists ciphertext at rest under Argon2id-derived master keys. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
 
 ## For contributors
 
