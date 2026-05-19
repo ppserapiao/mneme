@@ -5,8 +5,8 @@ import type {
   OwnerId,
   SearchResult,
   WriteMetadata,
-} from '@mneme/protocol'
-import { MnemeError, OwnerIdSchema } from '@mneme/protocol'
+} from '@mnemehq/protocol'
+import { MnemeError, OwnerIdSchema } from '@mnemehq/protocol'
 import { type KdfParams, toBase64Url } from './crypto'
 import type { Embedder } from './embedder/types'
 import type {
@@ -37,7 +37,7 @@ export type MnemeOptions = {
    * each plaintext body and `recall` returns records ranked by cosine
    * similarity. Without one, `recall` uses lexical BM25 via SQLite FTS5.
    *
-   * Install `@mneme/embedder-local` for on-device embeddings via
+   * Install `@mnemehq/embedder-local` for on-device embeddings via
    * `@huggingface/transformers`, or implement the `Embedder` interface
    * against any provider.
    */

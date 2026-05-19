@@ -1,4 +1,4 @@
-import { type Mneme, MnemeError, type OwnerId, type SyncPeer } from '@mneme/sdk'
+import { type Mneme, MnemeError, type OwnerId, type SyncPeer } from '@mnemehq/sdk'
 import type { Server, ServerWebSocket } from 'bun'
 import type { WsRequest, WsResponse } from './protocol'
 

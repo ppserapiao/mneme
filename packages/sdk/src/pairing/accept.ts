@@ -1,4 +1,4 @@
-import { MnemeError } from '@mneme/protocol'
+import { MnemeError } from '@mnemehq/protocol'
 import { decrypt, fromBase64Url, toBase64Url } from '../crypto'
 import {
   type EphemeralKeyPair,

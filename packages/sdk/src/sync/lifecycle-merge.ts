@@ -1,4 +1,4 @@
-import type { MemoryLifecycle } from '@mneme/protocol'
+import type { MemoryLifecycle } from '@mnemehq/protocol'
 
 /**
  * Merge two lifecycle envelopes per ADR 0008 §2.

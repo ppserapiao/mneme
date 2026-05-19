@@ -1,4 +1,4 @@
-# @mneme/protocol
+# @mnemehq/protocol
 
 The canonical types and runtime schemas for the **Mneme Protocol** — the open, versioned spec for user-sovereign AI memory.
 
@@ -10,7 +10,7 @@ This package is intentionally tiny and dependency-light. It contains:
 - The protocol version constant
 - The `MnemeError` class and its closed set of error codes
 
-You almost never import this package directly. Use [`@mneme/sdk`](../sdk) for the developer-facing API. Import `@mneme/protocol` only when you are:
+You almost never import this package directly. Use [`@mnemehq/sdk`](../sdk) for the developer-facing API. Import `@mnemehq/protocol` only when you are:
 
 1. Building an alternative implementation of the Mneme Protocol
 2. Validating a `MemoryRecord` received over the wire

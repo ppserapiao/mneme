@@ -1,5 +1,5 @@
 import { type FeatureExtractionPipeline, pipeline } from '@huggingface/transformers'
-import type { Embedder } from '@mneme/sdk'
+import type { Embedder } from '@mnemehq/sdk'
 
 export type LocalEmbedderOptions = {
   /**
@@ -24,7 +24,7 @@ const DEFAULT_DIMENSIONS = 384
 
 /**
  * On-device embedder backed by `@huggingface/transformers`. Implements the
- * `Embedder` interface from `@mneme/sdk` so it slots into `new Mneme({ embedder })`
+ * `Embedder` interface from `@mnemehq/sdk` so it slots into `new Mneme({ embedder })`
  * without further wiring.
  *
  * The model is lazily loaded on the first `embed()` call and reused for the

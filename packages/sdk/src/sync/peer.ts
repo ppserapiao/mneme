@@ -1,4 +1,4 @@
-import type { MemoryId, MemoryLifecycle, MemoryRecord, OwnerId } from '@mneme/protocol'
+import type { MemoryId, MemoryLifecycle, MemoryRecord, OwnerId } from '@mnemehq/protocol'
 
 /**
  * Minimum digest a peer needs to expose for two stores to diff their record

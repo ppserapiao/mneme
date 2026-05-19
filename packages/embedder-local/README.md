@@ -1,19 +1,19 @@
-# @mneme/embedder-local
+# @mnemehq/embedder-local
 
-On-device embeddings for [`@mneme/sdk`](../sdk), backed by [`@huggingface/transformers`](https://huggingface.co/docs/transformers.js). Drop it in to upgrade `recall()` from lexical BM25 to true semantic search — no API key, no hosted service, no data leaving the machine.
+On-device embeddings for [`@mnemehq/sdk`](../sdk), backed by [`@huggingface/transformers`](https://huggingface.co/docs/transformers.js). Drop it in to upgrade `recall()` from lexical BM25 to true semantic search — no API key, no hosted service, no data leaving the machine.
 
 ## Install
 
 ```sh
-bun add @mneme/sdk @mneme/embedder-local
-# or npm i @mneme/sdk @mneme/embedder-local
+bun add @mnemehq/sdk @mnemehq/embedder-local
+# or npm i @mnemehq/sdk @mnemehq/embedder-local
 ```
 
 ## Use
 
 ```ts
-import { Mneme } from '@mneme/sdk'
-import { LocalEmbedder } from '@mneme/embedder-local'
+import { Mneme } from '@mnemehq/sdk'
+import { LocalEmbedder } from '@mnemehq/embedder-local'
 
 const mneme = new Mneme({ embedder: new LocalEmbedder() })
 
@@ -48,9 +48,9 @@ transformers compatible). The `dimensions` option must match the model output.
 
 ## How it relates to the SDK
 
-`LocalEmbedder` implements the [`Embedder`](../sdk/src/embedder/types.ts) interface exported by `@mneme/sdk`. The SDK uses it on every plaintext `remember()` to store an embedding, and on every `recall()` to rank candidates by cosine similarity. Records written before an embedder is configured remain in the store but are invisible to semantic search until re-embedded (re-embedding migration ships in a later version).
+`LocalEmbedder` implements the [`Embedder`](../sdk/src/embedder/types.ts) interface exported by `@mnemehq/sdk`. The SDK uses it on every plaintext `remember()` to store an embedding, and on every `recall()` to rank candidates by cosine similarity. Records written before an embedder is configured remain in the store but are invisible to semantic search until re-embedded (re-embedding migration ships in a later version).
 
-See [ADR 0004](../../decisions/0004-local-first-embedding-strategy.md) for the rationale behind the model choice, the single-embedder-per-store constraint in v0.0.2, and why this package is separate from `@mneme/sdk`.
+See [ADR 0004](../../decisions/0004-local-first-embedding-strategy.md) for the rationale behind the model choice, the single-embedder-per-store constraint in v0.0.2, and why this package is separate from `@mnemehq/sdk`.
 
 ## Running the integration tests
 

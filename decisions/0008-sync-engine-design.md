@@ -55,7 +55,7 @@ The sync engine assumes both peers share a master key. How device B obtains the 
 
 ### 5. No signature verification inside the sync engine
 
-`@mneme/sdk`'s read path already verifies signatures via `verifyPersisted()` whenever a record is returned to the caller. Sync writes records via a dedicated `upsertForSync()` that bypasses signing (sync does not re-sign records — they are exchanged as-is). Later reads through the normal Mneme API surface re-verify signatures. So the sync engine itself does not need to verify; the layer ABOVE it (`get`/`recall`/`exportAll`) does.
+`@mnemehq/sdk`'s read path already verifies signatures via `verifyPersisted()` whenever a record is returned to the caller. Sync writes records via a dedicated `upsertForSync()` that bypasses signing (sync does not re-sign records — they are exchanged as-is). Later reads through the normal Mneme API surface re-verify signatures. So the sync engine itself does not need to verify; the layer ABOVE it (`get`/`recall`/`exportAll`) does.
 
 This is a deliberate choice. Sync's job is to move bytes faithfully. Provenance verification belongs at the consumer boundary, where a tampering finding can be surfaced meaningfully (with the record's id, owner, and full lifecycle context).
 

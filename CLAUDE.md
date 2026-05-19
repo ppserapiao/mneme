@@ -146,11 +146,11 @@ If a check fails, fix the root cause. Do not skip hooks or disable the check.
 
 ### Publishing to npm (runbook)
 
-We publish under the `@mneme` scope on npmjs.com. The full rationale is in [ADR 0011](./decisions/0011-npm-publishing.md); this is the operational sequence.
+We publish under the `@mnemehq` scope on npmjs.com. The bare `@mneme` scope was already taken by an unrelated user with four published packages — see ADR 0011 §6 for the full pivot rationale. The full strategy rationale is in [ADR 0011](./decisions/0011-npm-publishing.md); this is the operational sequence.
 
 **Prerequisites**
 
-1. The `@mneme` org exists on npmjs.com and Pedro is an owner.
+1. The `@mnemehq` org exists on npmjs.com and Pedro is an owner.
 2. The publishing machine has run `npm login` with an account that has publish rights to the scope.
 3. `git status` is clean and the PR with the version bumps has been merged to `main`.
 

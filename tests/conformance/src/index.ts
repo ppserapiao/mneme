@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { type MnemeStore, OwnerIdSchema, PROTOCOL_VERSION } from '@mneme/protocol'
+import { type MnemeStore, OwnerIdSchema, PROTOCOL_VERSION } from '@mnemehq/protocol'
 
 export type StoreFactory = () => Promise<{
   store: MnemeStore
@@ -13,7 +13,7 @@ export type StoreFactory = () => Promise<{
  * Usage from another package:
  *
  * ```ts
- * import { runV01ConformanceSuite } from '@mneme/conformance'
+ * import { runV01ConformanceSuite } from '@mnemehq/conformance'
  * runV01ConformanceSuite('my-store', async () => ({ store: new MyStore(), dispose() {} }))
  * ```
  *

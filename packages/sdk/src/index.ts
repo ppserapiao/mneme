@@ -44,7 +44,7 @@ export {
   MEMORY_KINDS,
   MnemeError,
   PROTOCOL_VERSION,
-} from '@mneme/protocol'
+} from '@mnemehq/protocol'
 export type {
   Embedding,
   EncryptedPayload,
@@ -59,4 +59,4 @@ export type {
   Payload,
   PlaintextPayload,
   SearchResult,
-} from '@mneme/protocol'
+} from '@mnemehq/protocol'

@@ -18,7 +18,7 @@ import {
   type SearchResult,
   type SupersedeInput,
   type WriteInput,
-} from '@mneme/protocol'
+} from '@mnemehq/protocol'
 import { ulid } from 'ulid'
 import {
   DEFAULT_KDF_PARAMS,

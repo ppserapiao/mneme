@@ -18,11 +18,11 @@ The constraints shaping this PR:
 
 ### Package layout
 
-`apps/mcp-server` per ADR 0001 (`apps/` = deployable surfaces). Published as `@mneme/mcp-server` when we begin npm publishing — until then run directly via `bun run apps/mcp-server/src/index.ts`.
+`apps/mcp-server` per ADR 0001 (`apps/` = deployable surfaces). Published as `@mnemehq/mcp-server` when we begin npm publishing — until then run directly via `bun run apps/mcp-server/src/index.ts`.
 
 ```
 apps/mcp-server/
-├── package.json         # @mneme/mcp-server, depends on @mneme/sdk + @modelcontextprotocol/sdk + zod
+├── package.json         # @mnemehq/mcp-server, depends on @mnemehq/sdk + @modelcontextprotocol/sdk + zod
 ├── tsconfig.json
 ├── README.md            # one-line Claude Code install
 └── src/
@@ -50,7 +50,7 @@ We deliberately do NOT expose `Mneme.initialize` / `Mneme.open` / `Mneme.publicK
 
 ### Input validation
 
-Each tool's `inputSchema` is a Zod shape constructed from the SDK's existing primitives (`MEMORY_KINDS` for the kind enum, ULID regex for IDs, bounded string lengths, etc.). The MCP SDK runs Zod validation before calling the handler, so malformed model arguments surface a clear "invalid arguments" error to the host before reaching `@mneme/sdk`.
+Each tool's `inputSchema` is a Zod shape constructed from the SDK's existing primitives (`MEMORY_KINDS` for the kind enum, ULID regex for IDs, bounded string lengths, etc.). The MCP SDK runs Zod validation before calling the handler, so malformed model arguments surface a clear "invalid arguments" error to the host before reaching `@mnemehq/sdk`.
 
 ### Error mapping
 

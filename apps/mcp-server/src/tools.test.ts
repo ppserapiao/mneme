@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { type MemoryRecord, Mneme } from '@mneme/sdk'
+import { type MemoryRecord, Mneme } from '@mnemehq/sdk'
 import { makeHandlers } from './tools'
 
 describe('MCP tool handlers — plaintext store', () => {

@@ -1,4 +1,4 @@
-import type { MemoryId, MemoryLifecycle, MemoryRecord, OwnerId } from '@mneme/protocol'
+import type { MemoryId, MemoryLifecycle, MemoryRecord, OwnerId } from '@mnemehq/protocol'
 import { type SupersedeContext, lifecycleEquals, mergeLifecycle } from './lifecycle-merge'
 import type { SyncCatalog, SyncCatalogEntry, SyncPeer } from './peer'
 

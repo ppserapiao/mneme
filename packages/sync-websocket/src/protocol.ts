@@ -5,10 +5,10 @@ import type {
   PairingResponse,
   PairingTransferBundle,
   SyncCatalogEntry,
-} from '@mneme/sdk'
+} from '@mnemehq/sdk'
 
 /**
- * Wire protocol for `@mneme/sync-websocket` (ADR 0010).
+ * Wire protocol for `@mnemehq/sync-websocket` (ADR 0010).
  *
  * Every message is JSON over a single WebSocket connection. Requests carry a
  * `id`; responses echo the same `id` so concurrent in-flight requests can be

@@ -1,15 +1,15 @@
-# @mneme/mcp-server
+# @mnemehq/mcp-server
 
 Model Context Protocol server for **mneme** — exposes the user-sovereign memory layer as MCP tools so any MCP host (Claude Code, Claude.ai, Cursor, future Anthropic agents) can remember, recall, forget, and supersede memory on the user's behalf.
 
-> Status: `v0.1.0` — first npm release. Wraps `@mneme/sdk` v0.1.0. Runs as a stdio MCP server.
+> Status: `v0.1.0` — first npm release. Wraps `@mnemehq/sdk` v0.1.0. Runs as a stdio MCP server.
 
 ## Install in Claude Code
 
 The fastest path — one command, no clone, no install:
 
 ```sh
-claude mcp add mneme -- npx -y @mneme/mcp-server
+claude mcp add mneme -- npx -y @mnemehq/mcp-server
 ```
 
 That registers the server, fetches the published tarball on first run, and starts speaking JSON-RPC over stdio. The `-y` keeps npx from prompting.
@@ -21,7 +21,7 @@ Or add the equivalent stanza to `~/.claude.json` directly:
   "mcpServers": {
     "mneme": {
       "command": "npx",
-      "args": ["-y", "@mneme/mcp-server"]
+      "args": ["-y", "@mnemehq/mcp-server"]
     }
   }
 }
@@ -34,7 +34,7 @@ For encryption at rest, pass a passphrase via env:
   "mcpServers": {
     "mneme": {
       "command": "npx",
-      "args": ["-y", "@mneme/mcp-server"],
+      "args": ["-y", "@mnemehq/mcp-server"],
       "env": {
         "MNEME_PASSPHRASE": "correct horse battery staple"
       }

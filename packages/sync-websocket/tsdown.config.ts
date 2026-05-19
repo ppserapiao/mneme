@@ -8,7 +8,7 @@ export default defineConfig({
   target: 'es2022',
   treeshake: true,
   deps: {
-    neverBundle: [/^bun:/, /^node:/, '@mneme/sdk'],
+    neverBundle: [/^bun:/, /^node:/, '@mnemehq/sdk'],
   },
   fixedExtension: false,
 })

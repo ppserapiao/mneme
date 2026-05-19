@@ -27,12 +27,12 @@ We compete on **whose memory it is**, not on whose retrieval scores half a point
 ```
 mneme/
 ├── packages/             ← Libraries published to npm
-│   ├── protocol/         ← @mneme/protocol — the open spec, as types
-│   ├── sdk/              ← @mneme/sdk — TypeScript reference implementation
-│   ├── embedder-local/   ← @mneme/embedder-local — on-device embeddings via transformers.js
-│   └── sync-websocket/   ← @mneme/sync-websocket — WebSocket transport for sync + pairing
+│   ├── protocol/         ← @mnemehq/protocol — the open spec, as types
+│   ├── sdk/              ← @mnemehq/sdk — TypeScript reference implementation
+│   ├── embedder-local/   ← @mnemehq/embedder-local — on-device embeddings via transformers.js
+│   └── sync-websocket/   ← @mnemehq/sync-websocket — WebSocket transport for sync + pairing
 ├── apps/
-│   └── mcp-server/       ← @mneme/mcp-server — Model Context Protocol server for Claude Code et al.
+│   └── mcp-server/       ← @mnemehq/mcp-server — Model Context Protocol server for Claude Code et al.
 ├── docs/
 │   └── protocol/      ← Versioned Mneme Protocol spec
 ├── decisions/         ← Architecture Decision Records (ADRs)
@@ -48,25 +48,25 @@ The boundary between `packages/protocol` and everything else is the boundary we 
 
 ```sh
 # Core SDK
-bun add @mneme/sdk
+bun add @mnemehq/sdk
 
 # Optional on-device embeddings
-bun add @mneme/embedder-local
+bun add @mnemehq/embedder-local
 
 # Optional WebSocket transport for multi-device sync + pairing
-bun add @mneme/sync-websocket
+bun add @mnemehq/sync-websocket
 
 # MCP server for Claude Code / Cursor / any MCP host — no install required
-npx @mneme/mcp-server
+npx @mnemehq/mcp-server
 ```
 
-All five packages are published to npm under `@mneme/*`. Requires [Bun](https://bun.sh) `>= 1.3` at runtime (the SDK and transports use `bun:sqlite` and Bun-native WebSockets).
+All five packages are published to npm under `@mnemehq/*`. Requires [Bun](https://bun.sh) `>= 1.3` at runtime (the SDK and transports use `bun:sqlite` and Bun-native WebSockets).
 
 ## Quickstart
 
 ```ts
-import { Mneme } from '@mneme/sdk'
-import { LocalEmbedder } from '@mneme/embedder-local'
+import { Mneme } from '@mnemehq/sdk'
+import { LocalEmbedder } from '@mnemehq/embedder-local'
 
 // First time — get the recovery phrase, store it somewhere safe
 const { mneme, recoveryPhrase } = await Mneme.initialize({
@@ -89,12 +89,12 @@ const matches = await mneme.recall('feedback style on pull requests')
 // const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
 ```
 
-All concerns — encryption, recovery, semantic recall, multi-device sync, device pairing — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `mneme.beginPairing()` / `Mneme.acceptPairing()` move the master key from one device to another with user-verified Short Authentication String (SAS) protection. `mneme.sync(peer)` converges two stores via any transport implementing the `SyncPeer` interface. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
+All concerns — encryption, recovery, semantic recall, multi-device sync, device pairing — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `mneme.beginPairing()` / `Mneme.acceptPairing()` move the master key from one device to another with user-verified Short Authentication String (SAS) protection. `mneme.sync(peer)` converges two stores via any transport implementing the `SyncPeer` interface. `@mnemehq/embedder-local` is an optional companion package for on-device semantic search.
 
 ### Use it from Claude Code (MCP)
 
 ```sh
-claude mcp add mneme -- npx -y @mneme/mcp-server
+claude mcp add mneme -- npx -y @mnemehq/mcp-server
 ```
 
 Now `mneme_remember`, `mneme_recall`, `mneme_get`, `mneme_forget`, `mneme_supersede`, `mneme_export` are available as MCP tools in Claude Code. See [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for the encrypted-mode setup.
@@ -103,8 +103,8 @@ Now `mneme_remember`, `mneme_recall`, `mneme_get`, `mneme_forget`, `mneme_supers
 
 ```ts
 // On device A
-import { Mneme } from '@mneme/sdk'
-import { WebSocketSyncServer, serveForPairing } from '@mneme/sync-websocket'
+import { Mneme } from '@mnemehq/sdk'
+import { WebSocketSyncServer, serveForPairing } from '@mnemehq/sync-websocket'
 
 const alice = await Mneme.open({ passphrase: '...' })
 await serveForPairing(alice, {
@@ -119,8 +119,8 @@ server.start()
 
 ```ts
 // On device B
-import { Mneme } from '@mneme/sdk'
-import { WebSocketSyncPeer, pairOverWebSocket } from '@mneme/sync-websocket'
+import { Mneme } from '@mnemehq/sdk'
+import { WebSocketSyncPeer, pairOverWebSocket } from '@mnemehq/sync-websocket'
 
 const { mneme: bob } = await pairOverWebSocket({
   url: 'ws://192.168.1.10:7078',

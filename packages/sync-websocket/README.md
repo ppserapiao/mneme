@@ -1,13 +1,13 @@
-# @mneme/sync-websocket
+# @mnemehq/sync-websocket
 
 WebSocket transport for **mneme** sync and pairing. Two laptops on a LAN — pair and sync with no hosted infrastructure.
 
-> Status: `v0.1.0` — first npm release. Built on `Bun.serve` for the server, standard `WebSocket` for the client. Pairs with [`@mneme/sdk`](../sdk) v0.1.0+.
+> Status: `v0.1.0` — first npm release. Built on `Bun.serve` for the server, standard `WebSocket` for the client. Pairs with [`@mnemehq/sdk`](../sdk) v0.1.0+.
 
 ## Install
 
 ```sh
-bun add @mneme/sdk @mneme/sync-websocket
+bun add @mnemehq/sdk @mnemehq/sync-websocket
 ```
 
 Server runtime is **Bun-only** (uses `Bun.serve`). Clients work on any runtime that exposes the standard `WebSocket` class (Bun, Node 22+, browsers).
@@ -16,8 +16,8 @@ Server runtime is **Bun-only** (uses `Bun.serve`). Clients work on any runtime t
 
 ```ts
 // === DEVICE A ===
-import { Mneme } from '@mneme/sdk'
-import { WebSocketSyncServer } from '@mneme/sync-websocket'
+import { Mneme } from '@mnemehq/sdk'
+import { WebSocketSyncServer } from '@mnemehq/sync-websocket'
 
 const alice = new Mneme({ path: '/path/to/alice.sqlite', ownerId: 'pedro' })
 const server = new WebSocketSyncServer({
@@ -31,8 +31,8 @@ console.log(`Sync target: ${server.url}`) // ws://localhost:7077
 
 ```ts
 // === DEVICE B ===
-import { Mneme } from '@mneme/sdk'
-import { WebSocketSyncPeer } from '@mneme/sync-websocket'
+import { Mneme } from '@mnemehq/sdk'
+import { WebSocketSyncPeer } from '@mnemehq/sync-websocket'
 
 const bob = new Mneme({ path: '/path/to/bob.sqlite', ownerId: 'pedro' })
 const peer = new WebSocketSyncPeer({ url: 'ws://192.168.1.10:7077' })
@@ -53,7 +53,7 @@ For **encrypted** sync, both devices need the same master key. Pairing transfers
 
 ```ts
 // === DEVICE A (paired Mneme — encrypted store) ===
-import { serveForPairing } from '@mneme/sync-websocket'
+import { serveForPairing } from '@mnemehq/sync-websocket'
 
 const result = await serveForPairing(alice, {
   port: 7078,
@@ -68,7 +68,7 @@ const result = await serveForPairing(alice, {
 
 ```ts
 // === DEVICE B (fresh — no keyring yet) ===
-import { pairOverWebSocket } from '@mneme/sync-websocket'
+import { pairOverWebSocket } from '@mnemehq/sync-websocket'
 
 const { mneme: bob, recoveryPhrase } = await pairOverWebSocket({
   url: 'ws://192.168.1.10:7078',

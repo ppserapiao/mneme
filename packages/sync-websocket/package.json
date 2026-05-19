@@ -1,5 +1,5 @@
 {
-  "name": "@mneme/sync-websocket",
+  "name": "@mnemehq/sync-websocket",
   "version": "0.1.0",
   "description": "WebSocket transport for mneme sync and pairing. Two laptops on a LAN — pair and sync with no hosted infrastructure.",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@mneme/sdk": "workspace:*"
+    "@mnemehq/sdk": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

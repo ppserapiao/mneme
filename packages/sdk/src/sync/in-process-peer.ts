@@ -1,4 +1,4 @@
-import type { MemoryId, MemoryRecord, OwnerId } from '@mneme/protocol'
+import type { MemoryId, MemoryRecord, OwnerId } from '@mnemehq/protocol'
 import type { SqliteStore } from '../store/sqlite'
 import type { SyncCatalog, SyncPeer } from './peer'
 

@@ -7,7 +7,7 @@
 
 The brief lays out an eight-SKU ecosystem fanning out from one core primitive: the open protocol + reference SDK. The lineup includes (at minimum) the protocol package, the TypeScript SDK, a Python SDK, a hosted API, an MCP server, a browser extension, a consumer desktop app, a marketing/docs site, and an enterprise control plane.
 
-Many of these SKUs share types from `@mneme/protocol` and depend on each other (the MCP server wraps the SDK; the API serves the protocol; the consumer app embeds the SDK). When the protocol changes — and it will, repeatedly, on the path to v1.0 — we need atomic, all-stack refactors that update the spec, the schemas, the SDK, the API, the MCP server, and the docs in one commit.
+Many of these SKUs share types from `@mnemehq/protocol` and depend on each other (the MCP server wraps the SDK; the API serves the protocol; the consumer app embeds the SDK). When the protocol changes — and it will, repeatedly, on the path to v1.0 — we need atomic, all-stack refactors that update the spec, the schemas, the SDK, the API, the MCP server, and the docs in one commit.
 
 We also need to ship this with a team of one human + one AI co-founder. Coordination tax is the binding constraint, not repo size.
 
@@ -19,7 +19,7 @@ Single monorepo at the top of this repository, organised as:
 
 ```
 mneme/
-├── packages/   # importable libraries published to npm (@mneme/*)
+├── packages/   # importable libraries published to npm (@mnemehq/*)
 ├── apps/       # deployable surfaces (api, mcp-server, consumer, extension, web)
 ├── docs/       # public-facing documentation (including docs/protocol/ — the spec)
 ├── decisions/  # ADRs (this file's home)

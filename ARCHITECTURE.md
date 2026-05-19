@@ -164,7 +164,7 @@ Two first-class SDKs, generated from the same OpenAPI + protocol spec:
 ### TypeScript (primary)
 
 ```ts
-import { Mneme } from "@mneme/sdk"
+import { Mneme } from "@mnemehq/sdk"
 
 const mneme = new Mneme({ apiKey: process.env.MNEME_KEY })
 

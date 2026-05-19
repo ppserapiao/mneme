@@ -1,4 +1,4 @@
-# @mneme/conformance
+# @mnemehq/conformance
 
 Cross-implementation conformance suite for the [mneme Protocol](../../docs/protocol/v0.1.md).
 
@@ -10,12 +10,12 @@ An implementation is **v0.1-conforming** if and only if every test in this packa
 bun test tests/conformance
 ```
 
-This runs the suite against `@mneme/sdk`'s `SqliteStore` via `src/sqlite-store.test.ts`.
+This runs the suite against `@mnemehq/sdk`'s `SqliteStore` via `src/sqlite-store.test.ts`.
 
 ## Running it against a new implementation
 
 ```ts
-import { runV01ConformanceSuite } from '@mneme/conformance'
+import { runV01ConformanceSuite } from '@mnemehq/conformance'
 import { MyStore } from './my-store'
 
 runV01ConformanceSuite('MyStore', async () => {

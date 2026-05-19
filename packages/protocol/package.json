@@ -1,5 +1,5 @@
 {
-  "name": "@mneme/protocol",
+  "name": "@mnemehq/protocol",
   "version": "0.1.0",
   "description": "The Mneme Protocol — canonical types and schemas for the open, user-sovereign memory layer for AI.",
   "license": "Apache-2.0",
