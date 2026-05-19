@@ -37,3 +37,4 @@ Briefly, with the reason each was rejected.
 | 0006  | [Recovery phrase and signed writes](./0006-recovery-phrase-and-signed-writes.md) | Accepted |
 | 0007  | [MCP server design](./0007-mcp-server-design.md) | Accepted |
 | 0008  | [Sync engine design](./0008-sync-engine-design.md) | Accepted |
+| 0009  | [Multi-device pairing ceremony](./0009-multi-device-pairing-ceremony.md) | Accepted |

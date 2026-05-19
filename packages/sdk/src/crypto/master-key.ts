@@ -76,6 +76,48 @@ export class MasterKey {
   }
 
   /**
+   * Initialise a keyring around a master key the caller already has — used
+   * by the pairing flow (ADR 0009) when device B receives device A's master
+   * key bytes over the verified pairing channel. Same dual-wrapping shape
+   * as `initialise`; just skips the random master-key generation.
+   *
+   * The input `masterKey` MUST be 32 bytes (256 bits).
+   */
+  static async initialiseWith(
+    masterKey: Uint8Array,
+    passphrase: string,
+    kdfParams: KdfParams = DEFAULT_KDF_PARAMS,
+  ): Promise<InitialiseResult> {
+    if (passphrase.length === 0) {
+      throw new Error('passphrase must not be empty')
+    }
+    if (masterKey.length !== MASTER_KEY_LENGTH) {
+      throw new Error(`master key must be ${MASTER_KEY_LENGTH} bytes (got ${masterKey.length})`)
+    }
+    // Defensive copy so a caller mutating their buffer later cannot mutate
+    // the in-memory master key we hold.
+    const copy = new Uint8Array(masterKey)
+    const passphraseSalt = randomBytes(SALT_LENGTH)
+    const passphraseKey = argon2(passphrase, passphraseSalt, kdfParams)
+    const wrappedByPassphrase = await encrypt(copy, passphraseKey)
+
+    const { phrase, entropy } = generateRecoveryPhrase()
+    const wrappedByRecovery = await encrypt(copy, entropy)
+
+    return {
+      masterKey: new MasterKey(copy),
+      meta: {
+        schemaVersion: 2,
+        passphraseSalt,
+        wrappedByPassphrase,
+        wrappedByRecovery,
+        kdfParams,
+      },
+      recoveryPhrase: phrase,
+    }
+  }
+
+  /**
    * Unlock an existing store with the user's passphrase. Throws when the
    * passphrase is wrong (AES-GCM tag mismatch on unwrap).
    */

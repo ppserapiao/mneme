@@ -146,6 +146,45 @@ export class SqliteStore implements MnemeStore {
   }
 
   /**
+   * Initialise a fresh keyring around a master key supplied by the caller —
+   * the device B side of a pairing ceremony (ADR 0009). Wraps the supplied
+   * master key under B's own passphrase and a freshly-generated recovery
+   * phrase, persists the keyring, returns the recovery phrase ONCE.
+   */
+  async initialiseKeyringWith(
+    masterKey: Uint8Array,
+    passphrase: string,
+    kdfParams: KdfParams = DEFAULT_KDF_PARAMS,
+  ): Promise<{ recoveryPhrase: string; publicKey: Uint8Array }> {
+    if (this.loadKeyringRow() !== null) {
+      throw new MnemeError(
+        'conflict',
+        'keyring already exists; cannot initialise from a transferred master key on top of an existing store',
+      )
+    }
+    const {
+      masterKey: derived,
+      meta,
+      recoveryPhrase,
+    } = await MasterKey.initialiseWith(masterKey, passphrase, kdfParams)
+    this.persistKeyring(meta)
+    this.adoptMasterKey(derived)
+    return { recoveryPhrase, publicKey: (this.signingKeys as SigningKeyPair).publicKey }
+  }
+
+  /**
+   * Internal — expose the raw master-key bytes for the device-A side of the
+   * pairing ceremony. Returns undefined for plaintext stores.
+   *
+   * SAFETY: callers MUST use the returned bytes only for the pairing
+   * ceremony's session-key encryption step and discard them immediately.
+   * Never persist, never log.
+   */
+  exportMasterKeyForPairing(): Uint8Array | undefined {
+    return this.masterKey ? new Uint8Array(this.masterKey.bytes()) : undefined
+  }
+
+  /**
    * Unlock an existing encrypted keyring with the user's passphrase.
    * Throws `record_not_found` if no keyring exists (suggest initialiseKeyring),
    * `unauthorized` on wrong passphrase.

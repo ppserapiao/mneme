@@ -30,6 +30,15 @@ export type {
   SyncableStore,
 } from './sync'
 
+export { acceptPairing, beginPairing } from './pairing'
+export type {
+  AcceptedPairing,
+  PairingInvite,
+  PairingResponse,
+  PairingSession,
+  PairingTransferBundle,
+} from './pairing'
+
 // Re-export the canonical protocol surface so consumers only need one import.
 export {
   MEMORY_KINDS,

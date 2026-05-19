@@ -9,6 +9,14 @@ import type {
 import { MnemeError, OwnerIdSchema } from '@mneme/protocol'
 import { type KdfParams, toBase64Url } from './crypto'
 import type { Embedder } from './embedder/types'
+import type {
+  AcceptedPairing,
+  PairingInvite,
+  PairingSession,
+  PairingTransferBundle,
+} from './pairing'
+import { acceptPairing as acceptPairingCeremony } from './pairing/accept'
+import { beginPairing as beginPairingCeremony } from './pairing/invite'
 import { SqliteStore } from './store/sqlite'
 import type { SyncResult } from './sync/engine'
 import { syncOnce } from './sync/engine'
@@ -295,6 +303,80 @@ export class Mneme {
    */
   asPeer(): SyncPeer {
     return new InProcessSyncPeer(this.store)
+  }
+
+  // --- Pairing (ADR 0009) ----------------------------------------------
+
+  /**
+   * Begin a pairing session — this is the device-A side. The store MUST
+   * already be unlocked (encrypted mode). Returns a session object whose
+   * `invite` should be transferred to device B (QR, file, side channel).
+   *
+   * After device B replies with a `PairingResponse`, call
+   * `session.complete(response)` and verify the returned `sas` matches the
+   * value displayed on device B. Then call `commit()` to produce the
+   * encrypted master-key bundle to send back to B.
+   *
+   * The session's ephemeral private key is held in memory only — it is
+   * discarded on `commit()` or when the process exits.
+   */
+  beginPairing(): PairingSession {
+    if (!this.encrypted) {
+      throw new MnemeError(
+        'invalid_record',
+        'pairing requires an encrypted store; open or initialize with a passphrase first',
+      )
+    }
+    const masterKey = this.store.exportMasterKeyForPairing()
+    if (!masterKey) {
+      throw new MnemeError('storage_failure', 'master key unavailable for pairing')
+    }
+    return beginPairingCeremony(masterKey)
+  }
+
+  /**
+   * Accept a pairing invite on the device that does NOT yet have the
+   * master key — this is the device-B side. Returns the response to ship
+   * back to A, the 6-digit SAS to verify against A's display, and a
+   * `finalize(bundle, options)` continuation that decrypts the master
+   * key bundle and initialises a fresh `Mneme` keyring locally.
+   *
+   * Device B chooses its OWN passphrase and receives its OWN 24-word
+   * recovery phrase — independent of device A. The two keyrings happen
+   * to wrap the same master-key bytes; that's what makes the same record
+   * decrypt on both devices.
+   */
+  static async acceptPairing(invite: PairingInvite): Promise<{
+    readonly response: AcceptedPairing['response']
+    readonly sas: string
+    finalize(
+      bundle: PairingTransferBundle,
+      options: { passphrase: string; path?: string; ownerId?: string; kdfParams?: KdfParams },
+    ): Promise<InitializeResult>
+  }> {
+    const ceremony = acceptPairingCeremony(invite)
+    return {
+      response: ceremony.response,
+      sas: ceremony.sas,
+      async finalize(bundle, options) {
+        const masterKey = await ceremony.decryptBundle(bundle)
+        if (options.passphrase.length === 0) {
+          throw new MnemeError('invalid_record', 'passphrase must not be empty')
+        }
+        const mneme = new Mneme({
+          path: options.path ?? defaultStoragePath(),
+          ...(options.ownerId !== undefined ? { ownerId: options.ownerId } : {}),
+        })
+        const { recoveryPhrase } = options.kdfParams
+          ? await mneme.store.initialiseKeyringWith(
+              masterKey,
+              options.passphrase,
+              options.kdfParams,
+            )
+          : await mneme.store.initialiseKeyringWith(masterKey, options.passphrase)
+        return { mneme, recoveryPhrase }
+      },
+    }
   }
 
   /** Release the underlying database handle. Safe to call multiple times. */
