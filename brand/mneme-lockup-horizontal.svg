@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-label="mneme — horizontal lockup">
+  <title>mneme — horizontal lockup</title>
+  <defs>
+    <filter id="grain-h" x="-2%" y="-5%" width="104%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" stitchTiles="stitch"></feTurbulence>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0"></feColorMatrix>
+    </filter>
+    <clipPath id="stack-clip-h">
+      <rect x="48" y="208" width="200" height="45" rx="10"></rect>
+      <rect x="68" y="143" width="160" height="45" rx="10"></rect>
+      <rect x="93" y="78" width="110" height="45" rx="10"></rect>
+    </clipPath>
+  </defs>
+
+  
+  <g>
+    <rect x="48" y="208" width="200" height="45" rx="10" fill="#15110F"></rect>
+    <rect x="68" y="143" width="160" height="45" rx="10" fill="#15110F"></rect>
+    <rect x="93" y="78" width="110" height="45" rx="10" fill="#E0651D"></rect>
+  </g>
+  <g clip-path="url(#stack-clip-h)" style="mix-blend-mode: multiply" opacity="0.55">
+    <rect x="0" y="0" width="320" height="320" filter="url(#grain-h)"></rect>
+  </g>
+
+  
+  <text x="340" y="226" font-family="&#39;Instrument Serif&#39;, &#39;Newsreader&#39;, Georgia, serif" font-size="224" fill="#15110F" letter-spacing="-0.02em">mneme</text>
+</svg>

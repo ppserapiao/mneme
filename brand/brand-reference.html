@@ -1,0 +1,1400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mneme — brand package</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="assets/tokens.css" />
+
+<style>
+/* ---------- Page shell ---------- */
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--mneme-paper);
+  color: var(--mneme-ink);
+  font-family: var(--mneme-font-serif);
+  font-size: var(--mneme-text-base);
+  line-height: var(--mneme-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Paper grain — fixed overlay over the entire page */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.10;
+}
+
+main {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 var(--mneme-space-7);
+}
+
+/* ---------- Typography helpers ---------- */
+.eyebrow {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+}
+.display {
+  font-family: var(--mneme-font-display);
+  font-weight: 400;
+  letter-spacing: var(--mneme-track-tight);
+  line-height: var(--mneme-leading-tight);
+}
+.serif { font-family: var(--mneme-font-serif); }
+.sans  { font-family: var(--mneme-font-sans); }
+.mono  { font-family: var(--mneme-font-mono); }
+
+h1.display { font-size: var(--mneme-text-5xl); margin: 0; }
+h2.display { font-size: var(--mneme-text-3xl); margin: 0 0 var(--mneme-space-4); }
+h3.display { font-size: var(--mneme-text-2xl); margin: 0 0 var(--mneme-space-3); }
+
+p.lede {
+  font-size: var(--mneme-text-lg);
+  line-height: var(--mneme-leading-snug);
+  color: var(--mneme-ink-soft);
+  max-width: 56ch;
+  text-wrap: pretty;
+}
+p { color: var(--mneme-ink-soft); text-wrap: pretty; }
+
+/* ---------- Section frame ---------- */
+section {
+  padding: var(--mneme-space-9) 0;
+  border-top: 1px solid var(--mneme-ink-line);
+  position: relative;
+}
+section:first-of-type { border-top: 0; }
+.sec-head {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--mneme-space-7);
+  margin-bottom: var(--mneme-space-8);
+  align-items: baseline;
+}
+.sec-head .num {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-sm);
+  letter-spacing: var(--mneme-track-wider);
+  text-transform: uppercase;
+  color: var(--mneme-ink-mute);
+}
+
+/* ---------- Cover ---------- */
+.cover {
+  min-height: 86vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: var(--mneme-space-9);
+  padding-top: var(--mneme-space-9);
+  padding-bottom: var(--mneme-space-9);
+  border-top: 0;
+}
+.cover .wordmark {
+  font-family: var(--mneme-font-display);
+  font-size: 280px;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+  color: var(--mneme-ink);
+}
+.cover .wordmark .dot { color: var(--mneme-orange); }
+.cover .meta {
+  display: flex; flex-direction: column; gap: var(--mneme-space-4);
+}
+.cover .meta .tagline {
+  font-family: var(--mneme-font-display);
+  font-style: italic;
+  font-size: var(--mneme-text-3xl);
+  line-height: var(--mneme-leading-snug);
+  letter-spacing: var(--mneme-track-tight);
+  color: var(--mneme-ink);
+  text-wrap: balance;
+}
+.cover .meta dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--mneme-space-2) var(--mneme-space-5);
+  margin: var(--mneme-space-5) 0 0;
+}
+.cover .meta dt {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+  padding-top: 4px;
+}
+.cover .meta dd {
+  margin: 0;
+  font-family: var(--mneme-font-serif);
+  font-size: var(--mneme-text-base);
+  color: var(--mneme-ink);
+}
+
+/* ---------- The Mark ---------- */
+.mark-stage {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  overflow: hidden;
+}
+.mark-stage .frame {
+  padding: var(--mneme-space-9);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  border-right: 1px solid var(--mneme-ink-line);
+}
+.mark-stage .frame svg.mark { width: 280px; height: 280px; }
+.mark-stage .frame .clearspace-grid {
+  position: absolute; inset: var(--mneme-space-7);
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(224,101,29,0.18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(224,101,29,0.18) 1px, transparent 1px);
+  background-size: 16px 16px;
+  opacity: 0.55;
+}
+.mark-stage .frame .clearspace-box {
+  position: absolute;
+  width: 280px; height: 280px;
+  outline: 1px dashed var(--mneme-orange);
+  outline-offset: 40px;
+  pointer-events: none;
+}
+.mark-stage .frame .clearspace-label {
+  position: absolute;
+  bottom: 16px; left: 16px;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-orange-deep);
+}
+.mark-stage .notes {
+  padding: var(--mneme-space-7);
+  display: flex; flex-direction: column; gap: var(--mneme-space-5);
+}
+.mark-stage .notes h4 {
+  margin: 0;
+  font-family: var(--mneme-font-display);
+  font-size: var(--mneme-text-xl);
+  font-weight: 400;
+  letter-spacing: var(--mneme-track-snug);
+}
+.mark-stage .notes ul { margin: 0; padding-left: var(--mneme-space-5); color: var(--mneme-ink-soft); }
+.mark-stage .notes li { margin-bottom: var(--mneme-space-2); }
+
+/* Variants strip */
+.variants {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--mneme-space-4);
+  margin-top: var(--mneme-space-6);
+}
+.variants .tile {
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-md);
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.variants .tile.cream { background: var(--mneme-cream); }
+.variants .tile.paper { background: var(--mneme-paper-2); }
+.variants .tile.ink   { background: var(--mneme-ink-bg); border-color: transparent; }
+.variants .tile.orange{ background: var(--mneme-orange); border-color: transparent; }
+.variants .tile svg { width: 56%; height: 56%; }
+.variants .tile .lbl {
+  position: absolute; bottom: 10px; left: 12px;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wide);
+  color: var(--mneme-ink-mute);
+}
+.variants .tile.ink .lbl, .variants .tile.orange .lbl { color: rgba(242,236,224,0.7); }
+
+/* Don'ts */
+.donts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--mneme-space-4);
+  margin-top: var(--mneme-space-6);
+}
+.donts .dt {
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-md);
+  aspect-ratio: 1 / 1;
+  background: var(--mneme-cream);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.donts .dt svg { width: 60%; height: 60%; }
+.donts .dt::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(45deg, transparent 49.4%, var(--mneme-bad) 49.4%, var(--mneme-bad) 50.6%, transparent 50.6%);
+  opacity: 0.6;
+}
+.donts .dt .lbl {
+  position: absolute; bottom: 8px; left: 10px; right: 10px;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  letter-spacing: var(--mneme-track-wide);
+  text-transform: uppercase;
+  color: var(--mneme-bad);
+  z-index: 2;
+  background: rgba(250, 246, 238, 0.85);
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+/* ---------- Lockups ---------- */
+.lockups {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--mneme-space-5);
+}
+.lockup-card {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-7);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  min-height: 320px;
+}
+.lockup-card .lbl {
+  position: absolute; top: 16px; left: 20px;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+}
+.lock-horizontal { display: flex; align-items: center; gap: 28px; }
+.lock-horizontal svg.mark { width: 110px; height: 110px; }
+.lock-horizontal .wm {
+  font-family: var(--mneme-font-display);
+  font-size: 112px;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--mneme-ink);
+}
+.lock-stacked { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.lock-stacked svg.mark { width: 130px; height: 130px; }
+.lock-stacked .wm {
+  font-family: var(--mneme-font-display);
+  font-size: 88px;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--mneme-ink);
+}
+
+/* ---------- Colour ---------- */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--mneme-space-4);
+}
+.swatch {
+  border-radius: var(--mneme-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--mneme-ink-line);
+  background: var(--mneme-cream);
+  display: flex; flex-direction: column;
+}
+.swatch .chip {
+  aspect-ratio: 4 / 3;
+  position: relative;
+}
+.swatch .chip .grain {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' seed='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+}
+.swatch .info {
+  padding: var(--mneme-space-3) var(--mneme-space-4) var(--mneme-space-4);
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-sm);
+  display: grid; gap: 2px;
+}
+.swatch .info .name {
+  font-weight: 500; color: var(--mneme-ink); font-size: var(--mneme-text-base);
+  font-family: var(--mneme-font-display);
+  letter-spacing: var(--mneme-track-snug);
+  margin-bottom: 4px;
+}
+.swatch .info .hex { color: var(--mneme-ink); font-family: var(--mneme-font-mono); font-size: 12px; }
+.swatch .info .var { color: var(--mneme-ink-mute); font-family: var(--mneme-font-mono); font-size: 11px; }
+.swatch .info .use { color: var(--mneme-ink-mute); font-family: var(--mneme-font-serif); font-style: italic; font-size: 12px; margin-top: 4px; }
+
+.palette-row-title {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+  margin: var(--mneme-space-6) 0 var(--mneme-space-3);
+}
+
+/* ---------- Typography ---------- */
+.type-card {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6) var(--mneme-space-7);
+  margin-bottom: var(--mneme-space-4);
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--mneme-space-7);
+  align-items: start;
+}
+.type-card .meta {
+  display: flex; flex-direction: column; gap: 4px;
+  border-right: 1px solid var(--mneme-ink-line);
+  padding-right: var(--mneme-space-5);
+}
+.type-card .meta .role {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+}
+.type-card .meta .name {
+  font-family: var(--mneme-font-display);
+  font-size: var(--mneme-text-xl);
+  letter-spacing: var(--mneme-track-snug);
+  color: var(--mneme-ink);
+}
+.type-card .meta .stack {
+  font-family: var(--mneme-font-mono);
+  font-size: 11px;
+  color: var(--mneme-ink-mute);
+  margin-top: 4px;
+}
+.type-card .specimen { min-width: 0; }
+.type-card .specimen .alphabet {
+  color: var(--mneme-ink);
+  letter-spacing: var(--mneme-track-snug);
+}
+.type-card .specimen .pangram {
+  color: var(--mneme-ink-soft);
+  margin-top: var(--mneme-space-3);
+}
+
+.scale {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6) var(--mneme-space-7);
+  margin-top: var(--mneme-space-5);
+}
+.scale-row {
+  display: grid;
+  grid-template-columns: 100px 120px 1fr;
+  align-items: baseline;
+  gap: var(--mneme-space-5);
+  padding: var(--mneme-space-3) 0;
+  border-bottom: 1px solid rgba(21,17,15,0.06);
+}
+.scale-row:last-child { border-bottom: 0; }
+.scale-row .tag {
+  font-family: var(--mneme-font-mono);
+  font-size: 12px;
+  color: var(--mneme-ink-mute);
+}
+.scale-row .px {
+  font-family: var(--mneme-font-mono);
+  font-size: 12px;
+  color: var(--mneme-ink);
+}
+.scale-row .sample {
+  font-family: var(--mneme-font-display);
+  color: var(--mneme-ink);
+  letter-spacing: var(--mneme-track-snug);
+  line-height: 1;
+}
+
+/* ---------- Spacing & Radii ---------- */
+.spacing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mneme-space-5);
+}
+.token-card {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6);
+}
+.token-card h4 {
+  margin: 0 0 var(--mneme-space-4);
+  font-family: var(--mneme-font-display);
+  font-size: var(--mneme-text-xl);
+  font-weight: 400;
+  letter-spacing: var(--mneme-track-snug);
+}
+.space-row {
+  display: grid;
+  grid-template-columns: 70px 80px 1fr;
+  align-items: center;
+  gap: var(--mneme-space-4);
+  padding: 6px 0;
+}
+.space-row .name { font-family: var(--mneme-font-mono); font-size: 12px; color: var(--mneme-ink-mute); }
+.space-row .val { font-family: var(--mneme-font-mono); font-size: 12px; color: var(--mneme-ink); }
+.space-row .bar { height: 10px; background: var(--mneme-ink); border-radius: 2px; }
+
+.radii-row {
+  display: flex; align-items: center; gap: var(--mneme-space-4);
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(21,17,15,0.06);
+}
+.radii-row:last-child { border-bottom: 0; }
+.radii-row .demo { width: 48px; height: 48px; background: var(--mneme-ink); }
+.radii-row .lbl {
+  font-family: var(--mneme-font-mono); font-size: 12px;
+  display: flex; flex-direction: column; color: var(--mneme-ink);
+}
+.radii-row .lbl .v { color: var(--mneme-ink-mute); }
+
+/* ---------- Application ---------- */
+.apps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mneme-space-5);
+}
+.app-card {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6);
+  display: flex; flex-direction: column; gap: var(--mneme-space-4);
+  min-height: 280px;
+}
+.app-card .lbl {
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-ink-mute);
+}
+.app-card .stage {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+
+/* App icon tile */
+.app-icon {
+  width: 96px; height: 96px;
+  border-radius: var(--mneme-radius-xl);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Button samples */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--mneme-radius-md);
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-sm);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 0;
+  transition: background var(--mneme-dur-fast) var(--mneme-ease);
+}
+.btn-primary { background: var(--mneme-orange); color: var(--mneme-cream); }
+.btn-primary:hover { background: var(--mneme-orange-deep); }
+.btn-ghost { background: transparent; color: var(--mneme-ink); border: 1px solid var(--mneme-ink-line); }
+.btn-ghost:hover { background: var(--mneme-paper-2); }
+.btn-dark { background: var(--mneme-ink); color: var(--mneme-cream); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--mneme-radius-pill);
+  background: var(--mneme-orange-wash);
+  color: var(--mneme-orange-deep);
+  font-family: var(--mneme-font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Browser-tab favicon mock */
+.tab {
+  display: flex; align-items: center;
+  background: var(--mneme-paper-2);
+  border-radius: 10px 10px 0 0;
+  padding: 8px 12px;
+  gap: 10px;
+  border: 1px solid var(--mneme-ink-line);
+  border-bottom: 0;
+  font-family: var(--mneme-font-sans);
+  font-size: 13px;
+  color: var(--mneme-ink-soft);
+  max-width: 220px;
+}
+.tab svg { width: 16px; height: 16px; flex: none; }
+
+/* Banner / hero card */
+.banner {
+  background: var(--mneme-ink-bg);
+  color: var(--mneme-on-ink);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6);
+  display: flex; flex-direction: column; gap: var(--mneme-space-4);
+  position: relative;
+  overflow: hidden;
+}
+.banner::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' seed='5' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: screen;
+  opacity: 0.06;
+  pointer-events: none;
+}
+.banner .h {
+  font-family: var(--mneme-font-display);
+  font-size: 38px;
+  letter-spacing: var(--mneme-track-tight);
+  line-height: 1.05;
+  color: var(--mneme-on-ink);
+  text-wrap: balance;
+}
+.banner .h .accent { color: var(--mneme-orange-soft); font-style: italic; }
+.banner .sub {
+  font-family: var(--mneme-font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+  color: var(--mneme-on-ink-mute);
+}
+.banner .row { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- Voice ---------- */
+.voice {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--mneme-space-5);
+}
+.voice .vcard {
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6);
+}
+.voice .vcard h4 {
+  margin: 0 0 var(--mneme-space-3);
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+}
+.voice .vcard.do  h4 { color: var(--mneme-good); }
+.voice .vcard.dont h4 { color: var(--mneme-bad); }
+.voice .vcard ul {
+  margin: 0; padding: 0; list-style: none;
+}
+.voice .vcard li {
+  font-family: var(--mneme-font-display);
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: var(--mneme-track-snug);
+  color: var(--mneme-ink);
+  padding: var(--mneme-space-3) 0;
+  border-bottom: 1px solid rgba(21,17,15,0.06);
+}
+.voice .vcard li:last-child { border-bottom: 0; }
+.voice .vcard.dont li { color: var(--mneme-ink-mute); text-decoration: line-through; text-decoration-color: rgba(178,58,42,0.4); }
+
+/* ---------- Code block ---------- */
+.code {
+  background: var(--mneme-ink-bg);
+  color: var(--mneme-on-ink);
+  border-radius: var(--mneme-radius-lg);
+  padding: var(--mneme-space-6) var(--mneme-space-7);
+  font-family: var(--mneme-font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-x: auto;
+  position: relative;
+}
+.code .c-com { color: #ad9a82; }
+.code .c-prop { color: #f3a06b; }
+.code .c-val { color: #f2ece0; }
+.code .c-str { color: #d8b48a; }
+.code .c-tok { color: var(--mneme-orange-soft); }
+.code header {
+  position: absolute; top: 14px; right: 18px;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  letter-spacing: var(--mneme-track-wider);
+  text-transform: uppercase;
+  color: var(--mneme-on-ink-mute);
+}
+
+.downloads {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mneme-space-4);
+  margin-top: var(--mneme-space-5);
+}
+.dl {
+  display: flex; align-items: center; gap: var(--mneme-space-4);
+  background: var(--mneme-cream);
+  border: 1px solid var(--mneme-ink-line);
+  border-radius: var(--mneme-radius-md);
+  padding: var(--mneme-space-4) var(--mneme-space-5);
+  color: var(--mneme-ink);
+  text-decoration: none;
+  transition: background var(--mneme-dur-fast) var(--mneme-ease), border-color var(--mneme-dur-fast) var(--mneme-ease);
+}
+.dl:hover { background: var(--mneme-paper-2); border-color: var(--mneme-orange); }
+.dl .ico {
+  width: 36px; height: 36px;
+  background: var(--mneme-paper-2);
+  border-radius: var(--mneme-radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mneme-font-mono);
+  font-size: 11px;
+  color: var(--mneme-ink-mute);
+  text-transform: uppercase;
+  flex: none;
+}
+.dl .name { font-family: var(--mneme-font-sans); font-size: var(--mneme-text-sm); font-weight: 500; }
+.dl .desc { font-family: var(--mneme-font-serif); font-size: 12px; color: var(--mneme-ink-mute); font-style: italic; }
+
+/* ---------- Footer ---------- */
+footer {
+  border-top: 1px solid var(--mneme-ink-line);
+  margin-top: var(--mneme-space-8);
+  padding: var(--mneme-space-7) 0 var(--mneme-space-9);
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mneme-font-sans);
+  font-size: var(--mneme-text-xs);
+  color: var(--mneme-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: var(--mneme-track-wider);
+}
+
+@media (max-width: 980px) {
+  main { padding: 0 var(--mneme-space-5); }
+  .cover { grid-template-columns: 1fr; gap: var(--mneme-space-7); min-height: auto; }
+  .cover .wordmark { font-size: 160px; }
+  .sec-head { grid-template-columns: 1fr; gap: var(--mneme-space-3); }
+  .mark-stage { grid-template-columns: 1fr; }
+  .mark-stage .frame { border-right: 0; border-bottom: 1px solid var(--mneme-ink-line); }
+  .lockups, .spacing-grid, .voice { grid-template-columns: 1fr; }
+  .variants, .donts, .palette, .apps, .downloads { grid-template-columns: repeat(2, 1fr); }
+  .scale-row { grid-template-columns: 60px 70px 1fr; }
+  .type-card { grid-template-columns: 1fr; }
+  .type-card .meta { border-right: 0; padding-right: 0; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Shared SVG defs (filters used by inline marks) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="grain-page" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="1" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0"/>
+    </filter>
+    <clipPath id="stack-cp">
+      <rect x="96" y="336" width="320" height="72" rx="16"/>
+      <rect x="128" y="232" width="256" height="72" rx="16"/>
+      <rect x="168" y="128" width="176" height="72" rx="16"/>
+    </clipPath>
+  </defs>
+</svg>
+
+<!-- Inline mark, default (ink + orange) -->
+<template id="mark-default">
+  <svg viewBox="0 0 512 512" class="mark">
+    <g>
+      <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+      <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+      <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+    </g>
+    <g clip-path="url(#stack-cp)" style="mix-blend-mode: multiply" opacity="0.55">
+      <rect x="0" y="0" width="512" height="512" filter="url(#grain-page)"/>
+    </g>
+  </svg>
+</template>
+
+<main>
+
+  <!-- ============ COVER ============ -->
+  <section class="cover">
+    <div>
+      <div class="eyebrow" style="margin-bottom: var(--mneme-space-4)">Brand package · v1.0 · 2026</div>
+      <div class="wordmark">mneme</div>
+      <div class="eyebrow" style="margin-top: var(--mneme-space-4)">The open memory layer for AI</div>
+    </div>
+    <div class="meta">
+      <div class="tagline">
+        Your memory.<br />Your keys.<br /><em>Every model.</em>
+      </div>
+      <dl>
+        <dt>Primary</dt>     <dd>Ink &nbsp;<span class="mono" style="font-size:12px;color:var(--mneme-ink-mute)">#15110F</span></dd>
+        <dt>Accent</dt>      <dd>Orange &nbsp;<span class="mono" style="font-size:12px;color:var(--mneme-ink-mute)">#E0651D</span></dd>
+        <dt>Surface</dt>     <dd>Paper &nbsp;<span class="mono" style="font-size:12px;color:var(--mneme-ink-mute)">#F2ECE0</span></dd>
+        <dt>Display</dt>     <dd>Instrument Serif</dd>
+        <dt>Body</dt>        <dd>Newsreader</dd>
+        <dt>UI / labels</dt> <dd>Space Grotesk</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ THE MARK ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">01 — The mark</div>
+      <div>
+        <h2 class="display">A stack. Three layers. One hot.</h2>
+        <p class="lede">The mneme mark reads as a memory stack: layered context, with the active layer surfaced in orange. Matte fills, slight grain — never glossy, never gradients.</p>
+      </div>
+    </div>
+
+    <div class="mark-stage">
+      <div class="frame">
+        <div class="clearspace-box"></div>
+        <svg viewBox="0 0 512 512" class="mark" style="width: 280px; height: 280px;">
+          <g>
+            <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+            <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+            <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+          </g>
+          <g clip-path="url(#stack-cp)" style="mix-blend-mode: multiply" opacity="0.55">
+            <rect x="0" y="0" width="512" height="512" filter="url(#grain-page)"/>
+          </g>
+        </svg>
+        <div class="clearspace-label">Clearspace = 1× bar-height</div>
+      </div>
+      <div class="notes">
+        <h4>Construction</h4>
+        <ul>
+          <li>Built on a 512 × 512 grid.</li>
+          <li>Three rounded bars (r = 16). Bottom 320w · middle 256w · top 176w · 72h each, gap 32.</li>
+          <li>Top bar is <span class="mono" style="font-size:13px">#E0651D</span>. Lower two are <span class="mono" style="font-size:13px">#15110F</span>.</li>
+          <li>Subtle grain (SVG <span class="mono" style="font-size:13px">feTurbulence</span>) multiplied at ~55% opacity for matte texture.</li>
+        </ul>
+        <h4>Minimums</h4>
+        <ul>
+          <li>Digital · 24px square (16px for favicon only — drop the grain).</li>
+          <li>Print · 10mm square.</li>
+          <li>Clearspace · the height of one bar on all four sides.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="palette-row-title">Variants</div>
+    <div class="variants">
+      <div class="tile cream">
+        <svg viewBox="0 0 512 512">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">Default · on paper</span>
+      </div>
+      <div class="tile ink">
+        <svg viewBox="0 0 512 512">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#F2ECE0"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#F2ECE0"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">Inverse · on ink</span>
+      </div>
+      <div class="tile orange">
+        <svg viewBox="0 0 512 512">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#15110F"/>
+        </svg>
+        <span class="lbl">Mono · on orange</span>
+      </div>
+      <div class="tile paper">
+        <svg viewBox="0 0 512 512">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#15110F"/>
+        </svg>
+        <span class="lbl">Mono · single colour</span>
+      </div>
+    </div>
+
+    <div class="palette-row-title">Don'ts</div>
+    <div class="donts">
+      <div class="dt">
+        <svg viewBox="0 0 512 512" style="filter: hue-rotate(180deg)">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">Don't recolour</span>
+      </div>
+      <div class="dt">
+        <svg viewBox="0 0 512 512" style="transform: rotate(15deg)">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">Don't rotate</span>
+      </div>
+      <div class="dt">
+        <svg viewBox="0 0 512 512" style="transform: scaleX(0.55)">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">Don't squash</span>
+      </div>
+      <div class="dt">
+        <svg viewBox="0 0 512 512" style="filter: drop-shadow(0 8px 0 rgba(0,0,0,0.5))">
+          <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+          <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+          <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+        </svg>
+        <span class="lbl">No drop-shadow</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOCKUPS ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">02 — Lockups</div>
+      <div>
+        <h2 class="display">Wordmark in <em style="font-style:italic">Instrument Serif</em>.</h2>
+        <p class="lede">Always lowercase. Tracking <span class="mono" style="font-size:14px">-0.02em</span>. The wordmark cap-height aligns to the height of the mark when paired horizontally.</p>
+      </div>
+    </div>
+
+    <div class="lockups">
+      <div class="lockup-card">
+        <span class="lbl">Horizontal · primary</span>
+        <div class="lock-horizontal">
+          <svg viewBox="0 0 512 512" class="mark">
+            <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+            <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+            <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+          </svg>
+          <div class="wm">mneme</div>
+        </div>
+      </div>
+      <div class="lockup-card">
+        <span class="lbl">Stacked · for tall slots</span>
+        <div class="lock-stacked">
+          <svg viewBox="0 0 512 512" class="mark">
+            <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+            <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+            <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+          </svg>
+          <div class="wm">mneme</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COLOUR ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">03 — Colour</div>
+      <div>
+        <h2 class="display">Warm neutrals, one accent.</h2>
+        <p class="lede">Paper and ink do almost all the work. Orange is reserved for action, emphasis, and the mark — never as a background for body text. Status colours stay matte and desaturated.</p>
+      </div>
+    </div>
+
+    <div class="palette-row-title">Core</div>
+    <div class="palette">
+      <div class="swatch">
+        <div class="chip" style="background:#15110F"><div class="grain"></div></div>
+        <div class="info">
+          <span class="name">Ink</span>
+          <span class="hex">#15110F</span>
+          <span class="var">--mneme-ink</span>
+          <span class="use">Primary text, mark, dark surfaces</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#E0651D"><div class="grain"></div></div>
+        <div class="info">
+          <span class="name">Orange</span>
+          <span class="hex">#E0651D</span>
+          <span class="var">--mneme-orange</span>
+          <span class="use">Primary action, accent only</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#F2ECE0"><div class="grain"></div></div>
+        <div class="info">
+          <span class="name">Paper</span>
+          <span class="hex">#F2ECE0</span>
+          <span class="var">--mneme-paper</span>
+          <span class="use">Primary background</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#FAF6EE"><div class="grain"></div></div>
+        <div class="info">
+          <span class="name">Cream</span>
+          <span class="hex">#FAF6EE</span>
+          <span class="var">--mneme-cream</span>
+          <span class="use">Lift, dialog, card</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="palette-row-title">Extended neutrals</div>
+    <div class="palette">
+      <div class="swatch"><div class="chip" style="background:#3D342C"><div class="grain"></div></div>
+        <div class="info"><span class="name">Ink-soft</span><span class="hex">#3D342C</span><span class="var">--mneme-ink-soft</span><span class="use">Body text, secondary</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#8A7A6A"><div class="grain"></div></div>
+        <div class="info"><span class="name">Ink-mute</span><span class="hex">#8A7A6A</span><span class="var">--mneme-ink-mute</span><span class="use">Labels, captions</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#D9CFBD"><div class="grain"></div></div>
+        <div class="info"><span class="name">Ink-line</span><span class="hex">#D9CFBD</span><span class="var">--mneme-ink-line</span><span class="use">Hairline rules</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#EBE3D4"><div class="grain"></div></div>
+        <div class="info"><span class="name">Paper-2</span><span class="hex">#EBE3D4</span><span class="var">--mneme-paper-2</span><span class="use">Inset, hover row</span></div></div>
+    </div>
+
+    <div class="palette-row-title">Accent + dark surface</div>
+    <div class="palette">
+      <div class="swatch"><div class="chip" style="background:#B8481A"><div class="grain"></div></div>
+        <div class="info"><span class="name">Orange-deep</span><span class="hex">#B8481A</span><span class="var">--mneme-orange-deep</span><span class="use">Hover, pressed</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#FBE1CB"><div class="grain"></div></div>
+        <div class="info"><span class="name">Orange-wash</span><span class="hex">#FBE1CB</span><span class="var">--mneme-orange-wash</span><span class="use">Badge background</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#1A1714"><div class="grain"></div></div>
+        <div class="info"><span class="name">Ink-bg</span><span class="hex">#1A1714</span><span class="var">--mneme-ink-bg</span><span class="use">Primary dark surface</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#221E1A"><div class="grain"></div></div>
+        <div class="info"><span class="name">Ink-bg-2</span><span class="hex">#221E1A</span><span class="var">--mneme-ink-bg-2</span><span class="use">Dark card</span></div></div>
+    </div>
+
+    <div class="palette-row-title">Status (use sparingly)</div>
+    <div class="palette">
+      <div class="swatch"><div class="chip" style="background:#4F7A4A"><div class="grain"></div></div>
+        <div class="info"><span class="name">Good</span><span class="hex">#4F7A4A</span><span class="var">--mneme-good</span><span class="use">Success, synced</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#C28A1E"><div class="grain"></div></div>
+        <div class="info"><span class="name">Warn</span><span class="hex">#C28A1E</span><span class="var">--mneme-warn</span><span class="use">Caution</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#B23A2A"><div class="grain"></div></div>
+        <div class="info"><span class="name">Bad</span><span class="hex">#B23A2A</span><span class="var">--mneme-bad</span><span class="use">Error, destructive</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#AD9A82"><div class="grain"></div></div>
+        <div class="info"><span class="name">On-ink-mute</span><span class="hex">#AD9A82</span><span class="var">--mneme-on-ink-mute</span><span class="use">Secondary on dark</span></div></div>
+    </div>
+  </section>
+
+  <!-- ============ TYPE ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">04 — Typography</div>
+      <div>
+        <h2 class="display">Three families, clear roles.</h2>
+        <p class="lede">Instrument Serif for display moments and the wordmark. Newsreader for long-form reading. Space Grotesk for UI, labels, and chrome. JetBrains Mono for code and tokens.</p>
+      </div>
+    </div>
+
+    <div class="type-card">
+      <div class="meta">
+        <span class="role">Display</span>
+        <span class="name" style="font-family: 'Instrument Serif', serif;">Instrument Serif</span>
+        <span class="stack">"Instrument Serif", "Newsreader", Georgia, serif</span>
+      </div>
+      <div class="specimen">
+        <div class="alphabet" style="font-family: 'Instrument Serif', serif; font-size: 64px; line-height: 1;">
+          Memory that belongs to <em style="font-style: italic">you</em>.
+        </div>
+        <div class="pangram" style="font-family: 'Instrument Serif', serif; font-size: 20px;">
+          The five boxing wizards jump quickly. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789
+        </div>
+      </div>
+    </div>
+
+    <div class="type-card">
+      <div class="meta">
+        <span class="role">Serif body</span>
+        <span class="name" style="font-family: 'Newsreader', serif;">Newsreader</span>
+        <span class="stack">"Newsreader", Georgia, serif</span>
+      </div>
+      <div class="specimen">
+        <div class="alphabet" style="font-family: 'Newsreader', serif; font-size: 22px; line-height: 1.5; color: var(--mneme-ink-soft);">
+          Mneme is the open, user-sovereign memory layer for AI — your context, owned by you, portable across every model and tool. Long-form copy, briefs, narrative pages, anything that wants to be read carefully sets in Newsreader.
+        </div>
+      </div>
+    </div>
+
+    <div class="type-card">
+      <div class="meta">
+        <span class="role">UI · labels</span>
+        <span class="name" style="font-family: 'Space Grotesk', sans-serif;">Space Grotesk</span>
+        <span class="stack">"Space Grotesk", system-ui, sans-serif</span>
+      </div>
+      <div class="specimen">
+        <div class="alphabet" style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 500;">
+          Settings · Memory · Devices · Keys
+        </div>
+        <div class="pangram" style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; color: var(--mneme-ink-mute); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 12px;">
+          Synced 4m ago · 1,284 memories · End-to-end encrypted
+        </div>
+      </div>
+    </div>
+
+    <div class="type-card">
+      <div class="meta">
+        <span class="role">Code · mono</span>
+        <span class="name" style="font-family: 'JetBrains Mono', monospace;">JetBrains Mono</span>
+        <span class="stack">"JetBrains Mono", ui-monospace, monospace</span>
+      </div>
+      <div class="specimen">
+        <div class="alphabet" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--mneme-ink-soft);">
+          mneme.remember({ key: "user.preference.tone", value: "direct" });<br/>
+          → ok · synced across 4 devices · 12ms
+        </div>
+      </div>
+    </div>
+
+    <div class="scale">
+      <div class="eyebrow" style="margin-bottom: var(--mneme-space-4)">Type scale</div>
+      <div class="scale-row"><span class="tag">5xl</span><span class="px">96px / 1.0</span><span class="sample" style="font-size: 64px">mneme</span></div>
+      <div class="scale-row"><span class="tag">4xl</span><span class="px">64px / 1.05</span><span class="sample" style="font-size: 52px">Memory that belongs to you</span></div>
+      <div class="scale-row"><span class="tag">3xl</span><span class="px">44px / 1.1</span><span class="sample" style="font-size: 40px">A stack. Three layers. One hot.</span></div>
+      <div class="scale-row"><span class="tag">2xl</span><span class="px">32px / 1.2</span><span class="sample" style="font-size: 30px">Section heading</span></div>
+      <div class="scale-row"><span class="tag">xl</span><span class="px">24px / 1.3</span><span class="sample" style="font-size: 22px">Card title or lead</span></div>
+      <div class="scale-row"><span class="tag">lg</span><span class="px">19px / 1.45</span><span class="sample" style="font-family: var(--mneme-font-serif); font-size: 18px">Lede paragraph for editorial moments and intros.</span></div>
+      <div class="scale-row"><span class="tag">base</span><span class="px">16px / 1.5</span><span class="sample" style="font-family: var(--mneme-font-serif); font-size: 16px">Default body text — long-form, comfortable to read.</span></div>
+      <div class="scale-row"><span class="tag">sm</span><span class="px">13px / 1.5</span><span class="sample" style="font-family: var(--mneme-font-sans); font-size: 13px">UI body, secondary copy, captions.</span></div>
+      <div class="scale-row"><span class="tag">xs</span><span class="px">11px / 1.4</span><span class="sample" style="font-family: var(--mneme-font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--mneme-ink-mute)">Eyebrow · metadata · label</span></div>
+    </div>
+  </section>
+
+  <!-- ============ SPACING + RADII ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">05 — Spacing &amp; geometry</div>
+      <div>
+        <h2 class="display">Four-pixel base. Generous rhythm.</h2>
+        <p class="lede">Multiples of 4 — but lean toward larger steps (24, 32, 48) for breathing room. The brand reads calm; tight density is reserved for data-dense UI.</p>
+      </div>
+    </div>
+
+    <div class="spacing-grid">
+      <div class="token-card">
+        <h4>Spacing</h4>
+        <div class="space-row"><span class="name">--space-1</span><span class="val">4px</span><span class="bar" style="width:4px"></span></div>
+        <div class="space-row"><span class="name">--space-2</span><span class="val">8px</span><span class="bar" style="width:8px"></span></div>
+        <div class="space-row"><span class="name">--space-3</span><span class="val">12px</span><span class="bar" style="width:12px"></span></div>
+        <div class="space-row"><span class="name">--space-4</span><span class="val">16px</span><span class="bar" style="width:16px"></span></div>
+        <div class="space-row"><span class="name">--space-5</span><span class="val">24px</span><span class="bar" style="width:24px"></span></div>
+        <div class="space-row"><span class="name">--space-6</span><span class="val">32px</span><span class="bar" style="width:32px"></span></div>
+        <div class="space-row"><span class="name">--space-7</span><span class="val">48px</span><span class="bar" style="width:48px"></span></div>
+        <div class="space-row"><span class="name">--space-8</span><span class="val">64px</span><span class="bar" style="width:64px"></span></div>
+        <div class="space-row"><span class="name">--space-9</span><span class="val">96px</span><span class="bar" style="width:96px"></span></div>
+        <div class="space-row"><span class="name">--space-10</span><span class="val">128px</span><span class="bar" style="width:128px"></span></div>
+      </div>
+
+      <div class="token-card">
+        <h4>Radii</h4>
+        <div class="radii-row"><div class="demo" style="border-radius:4px"></div><div class="lbl"><span>--radius-sm</span><span class="v">4px · inputs, badges</span></div></div>
+        <div class="radii-row"><div class="demo" style="border-radius:8px"></div><div class="lbl"><span>--radius-md</span><span class="v">8px · buttons, fields</span></div></div>
+        <div class="radii-row"><div class="demo" style="border-radius:14px"></div><div class="lbl"><span>--radius-lg</span><span class="v">14px · cards, panels</span></div></div>
+        <div class="radii-row"><div class="demo" style="border-radius:22px"></div><div class="lbl"><span>--radius-xl</span><span class="v">22px · app icons, dialogs</span></div></div>
+        <div class="radii-row"><div class="demo" style="border-radius:999px; width:80px"></div><div class="lbl"><span>--radius-pill</span><span class="v">999px · chips, avatars</span></div></div>
+
+        <h4 style="margin-top: var(--mneme-space-6)">Texture</h4>
+        <p style="font-family: var(--mneme-font-serif); font-size: 14px; color: var(--mneme-ink-soft); margin: 0;">
+          Every primary surface carries a low-contrast SVG noise overlay
+          (<span class="mono" style="font-size: 12px">feTurbulence baseFreq 0.85, multiply ~10%</span>).
+          The mark itself uses a denser grain (<span class="mono" style="font-size: 12px">baseFreq 1.4, ~55%</span>).
+          This is the brand's signature — never ship a flat surface without it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ APPLICATION ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">06 — In application</div>
+      <div>
+        <h2 class="display">How the system feels in use.</h2>
+        <p class="lede">A handful of representative components built from the tokens above. Use these as the reference target when implementing.</p>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div class="app-card">
+        <span class="lbl">Browser favicon · tab</span>
+        <div class="stage" style="flex-direction: column; gap: 16px;">
+          <div class="tab">
+            <svg viewBox="0 0 512 512">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+            <span>mneme — your memory</span>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <svg viewBox="0 0 512 512" style="width:16px;height:16px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+            <svg viewBox="0 0 512 512" style="width:24px;height:24px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+            <svg viewBox="0 0 512 512" style="width:40px;height:40px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-card">
+        <span class="lbl">App icon</span>
+        <div class="stage" style="gap: 16px;">
+          <div class="app-icon" style="background: var(--mneme-paper); box-shadow: var(--mneme-shadow-2);">
+            <svg viewBox="0 0 512 512" style="width:60px;height:60px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+          </div>
+          <div class="app-icon" style="background: var(--mneme-ink-bg);">
+            <svg viewBox="0 0 512 512" style="width:60px;height:60px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#F2ECE0"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#F2ECE0"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+          </div>
+          <div class="app-icon" style="background: var(--mneme-orange);">
+            <svg viewBox="0 0 512 512" style="width:60px;height:60px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#15110F"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-card">
+        <span class="lbl">Buttons + badge</span>
+        <div class="stage" style="flex-direction: column; gap: 16px;">
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-primary">Install MCP server</button>
+            <button class="btn btn-ghost">Read the spec</button>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-dark">npm i @mneme/sdk</button>
+            <span class="badge">v1 · open</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-card" style="grid-column: span 2;">
+        <span class="lbl">Banner — dark surface</span>
+        <div class="stage" style="display: block;">
+          <div class="banner">
+            <div class="sub">Brief · v1.0</div>
+            <div class="h">The memory layer the AI era <span class="accent">forgot to build.</span></div>
+            <div class="row" style="margin-top: 6px;">
+              <svg viewBox="0 0 512 512" style="width:36px;height:36px">
+                <rect x="96"  y="336" width="320" height="72" rx="16" fill="#F2ECE0"/>
+                <rect x="128" y="232" width="256" height="72" rx="16" fill="#F2ECE0"/>
+                <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+              </svg>
+              <span style="font-family: var(--mneme-font-sans); font-size: 13px; color: var(--mneme-on-ink-mute); letter-spacing: 0.06em;">your memory · synced · end-to-end encrypted</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-card">
+        <span class="lbl">Card — list row</span>
+        <div class="stage" style="flex-direction: column; gap: 10px; align-items: stretch;">
+          <div style="background: var(--mneme-paper-2); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;">
+            <svg viewBox="0 0 512 512" style="width:24px;height:24px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+            <div style="flex:1;">
+              <div style="font-family: var(--mneme-font-sans); font-size: 14px; font-weight: 500; color: var(--mneme-ink);">user.preference.tone</div>
+              <div style="font-family: var(--mneme-font-serif); font-size: 13px; font-style: italic; color: var(--mneme-ink-mute);">"direct, terse, no preamble"</div>
+            </div>
+            <span class="badge" style="background: transparent; color: var(--mneme-ink-mute);">synced · 4m</span>
+          </div>
+          <div style="background: var(--mneme-paper-2); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;">
+            <svg viewBox="0 0 512 512" style="width:24px;height:24px">
+              <rect x="96"  y="336" width="320" height="72" rx="16" fill="#15110F"/>
+              <rect x="128" y="232" width="256" height="72" rx="16" fill="#15110F"/>
+              <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"/>
+            </svg>
+            <div style="flex:1;">
+              <div style="font-family: var(--mneme-font-sans); font-size: 14px; font-weight: 500; color: var(--mneme-ink);">project.mneme.thesis</div>
+              <div style="font-family: var(--mneme-font-serif); font-size: 13px; font-style: italic; color: var(--mneme-ink-mute);">"open, user-sovereign memory layer"</div>
+            </div>
+            <span class="badge" style="background: transparent; color: var(--mneme-ink-mute);">local · today</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VOICE ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">07 — Voice</div>
+      <div>
+        <h2 class="display">Direct. Plainspoken. <em style="font-style:italic">Slightly editorial.</em></h2>
+        <p class="lede">We write like an essay, not a sales page. Short sentences. Concrete nouns. No "revolutionary." No "AI-powered." When we make a claim, we name a mechanism.</p>
+      </div>
+    </div>
+
+    <div class="voice">
+      <div class="vcard do">
+        <h4>Sounds like us</h4>
+        <ul>
+          <li>"Your memory. Your keys. Every model."</li>
+          <li>"Memory that belongs to you."</li>
+          <li>"Stored on your device. Synced when you choose."</li>
+          <li>"The memory layer the AI era forgot to build."</li>
+          <li>"Open protocol. Client-held keys. Cross-provider."</li>
+        </ul>
+      </div>
+      <div class="vcard dont">
+        <h4>Not us</h4>
+        <ul>
+          <li>"Revolutionary AI-powered memory platform"</li>
+          <li>"Unlock the power of your context"</li>
+          <li>"The future of personal AI is here"</li>
+          <li>"Seamlessly leverage your data"</li>
+          <li>"World-class enterprise-grade solution"</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HANDOFF ============ -->
+  <section>
+    <div class="sec-head">
+      <div class="num">08 — Handoff</div>
+      <div>
+        <h2 class="display">Ship it.</h2>
+        <p class="lede">Drop <span class="mono" style="font-size:14px">tokens.css</span> into your project, import the fonts, reference the SVG mark. Everything in this document is reproducible from these primitives.</p>
+      </div>
+    </div>
+
+    <div class="palette-row-title">Font import (Google Fonts)</div>
+    <pre class="code"><header>html</header><span class="c-com">&lt;!-- in &lt;head&gt; --&gt;</span>
+<span class="c-tok">&lt;link</span> <span class="c-prop">rel</span>=<span class="c-str">"preconnect"</span> <span class="c-prop">href</span>=<span class="c-str">"https://fonts.gstatic.com"</span> crossorigin<span class="c-tok">&gt;</span>
+<span class="c-tok">&lt;link</span> <span class="c-prop">rel</span>=<span class="c-str">"stylesheet"</span> <span class="c-prop">href</span>=<span class="c-str">"https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Newsreader:ital,wght@0,400;0,500;1,400&amp;family=Space+Grotesk:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"</span><span class="c-tok">&gt;</span></pre>
+
+    <div class="palette-row-title">CSS variables (excerpt)</div>
+    <pre class="code"><header>tokens.css</header><span class="c-tok">:root</span> {
+  <span class="c-com">/* Colour */</span>
+  <span class="c-prop">--mneme-ink</span>:          <span class="c-val">#15110F</span>;
+  <span class="c-prop">--mneme-orange</span>:       <span class="c-val">#E0651D</span>;
+  <span class="c-prop">--mneme-paper</span>:        <span class="c-val">#F2ECE0</span>;
+  <span class="c-prop">--mneme-cream</span>:        <span class="c-val">#FAF6EE</span>;
+  <span class="c-prop">--mneme-ink-bg</span>:       <span class="c-val">#1A1714</span>;
+
+  <span class="c-com">/* Type */</span>
+  <span class="c-prop">--mneme-font-display</span>: <span class="c-val">"Instrument Serif", Georgia, serif</span>;
+  <span class="c-prop">--mneme-font-serif</span>:   <span class="c-val">"Newsreader", Georgia, serif</span>;
+  <span class="c-prop">--mneme-font-sans</span>:    <span class="c-val">"Space Grotesk", system-ui, sans-serif</span>;
+  <span class="c-prop">--mneme-font-mono</span>:    <span class="c-val">"JetBrains Mono", ui-monospace, monospace</span>;
+}
+
+<span class="c-com">/* full file at assets/tokens.css */</span></pre>
+
+    <div class="palette-row-title">SVG mark (inline)</div>
+    <pre class="code"><header>mneme-mark.svg</header><span class="c-tok">&lt;svg</span> <span class="c-prop">viewBox</span>=<span class="c-str">"0 0 512 512"</span> <span class="c-prop">xmlns</span>=<span class="c-str">"http://www.w3.org/2000/svg"</span><span class="c-tok">&gt;</span>
+  <span class="c-tok">&lt;defs&gt;</span>
+    <span class="c-tok">&lt;filter</span> <span class="c-prop">id</span>=<span class="c-str">"grain"</span><span class="c-tok">&gt;</span>
+      <span class="c-tok">&lt;feTurbulence</span> <span class="c-prop">type</span>=<span class="c-str">"fractalNoise"</span> <span class="c-prop">baseFrequency</span>=<span class="c-str">"1.4"</span> <span class="c-prop">numOctaves</span>=<span class="c-str">"2"</span> <span class="c-prop">seed</span>=<span class="c-str">"1"</span><span class="c-tok">/&gt;</span>
+      <span class="c-tok">&lt;feColorMatrix</span> <span class="c-prop">values</span>=<span class="c-str">"0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0"</span><span class="c-tok">/&gt;</span>
+    <span class="c-tok">&lt;/filter&gt;</span>
+    <span class="c-tok">&lt;clipPath</span> <span class="c-prop">id</span>=<span class="c-str">"s"</span><span class="c-tok">&gt;</span>
+      <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"96"</span>  <span class="c-prop">y</span>=<span class="c-str">"336"</span> <span class="c-prop">width</span>=<span class="c-str">"320"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span><span class="c-tok">/&gt;</span>
+      <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"128"</span> <span class="c-prop">y</span>=<span class="c-str">"232"</span> <span class="c-prop">width</span>=<span class="c-str">"256"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span><span class="c-tok">/&gt;</span>
+      <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"168"</span> <span class="c-prop">y</span>=<span class="c-str">"128"</span> <span class="c-prop">width</span>=<span class="c-str">"176"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span><span class="c-tok">/&gt;</span>
+    <span class="c-tok">&lt;/clipPath&gt;</span>
+  <span class="c-tok">&lt;/defs&gt;</span>
+  <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"96"</span>  <span class="c-prop">y</span>=<span class="c-str">"336"</span> <span class="c-prop">width</span>=<span class="c-str">"320"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span> <span class="c-prop">fill</span>=<span class="c-str">"#15110F"</span><span class="c-tok">/&gt;</span>
+  <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"128"</span> <span class="c-prop">y</span>=<span class="c-str">"232"</span> <span class="c-prop">width</span>=<span class="c-str">"256"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span> <span class="c-prop">fill</span>=<span class="c-str">"#15110F"</span><span class="c-tok">/&gt;</span>
+  <span class="c-tok">&lt;rect</span> <span class="c-prop">x</span>=<span class="c-str">"168"</span> <span class="c-prop">y</span>=<span class="c-str">"128"</span> <span class="c-prop">width</span>=<span class="c-str">"176"</span> <span class="c-prop">height</span>=<span class="c-str">"72"</span> <span class="c-prop">rx</span>=<span class="c-str">"16"</span> <span class="c-prop">fill</span>=<span class="c-str">"#E0651D"</span><span class="c-tok">/&gt;</span>
+  <span class="c-tok">&lt;g</span> <span class="c-prop">clip-path</span>=<span class="c-str">"url(#s)"</span> <span class="c-prop">style</span>=<span class="c-str">"mix-blend-mode: multiply"</span> <span class="c-prop">opacity</span>=<span class="c-str">"0.55"</span><span class="c-tok">&gt;</span>
+    <span class="c-tok">&lt;rect</span> <span class="c-prop">width</span>=<span class="c-str">"512"</span> <span class="c-prop">height</span>=<span class="c-str">"512"</span> <span class="c-prop">filter</span>=<span class="c-str">"url(#grain)"</span><span class="c-tok">/&gt;</span>
+  <span class="c-tok">&lt;/g&gt;</span>
+<span class="c-tok">&lt;/svg&gt;</span></pre>
+
+    <div class="palette-row-title">Assets in this package</div>
+    <div class="downloads">
+      <a class="dl" href="assets/mneme-mark.svg" target="_blank" rel="noopener">
+        <span class="ico">SVG</span>
+        <div><div class="name">mneme-mark.svg</div><div class="desc">Primary mark, with grain</div></div>
+      </a>
+      <a class="dl" href="assets/mneme-mark-inverse.svg" target="_blank" rel="noopener">
+        <span class="ico">SVG</span>
+        <div><div class="name">mneme-mark-inverse.svg</div><div class="desc">For dark surfaces</div></div>
+      </a>
+      <a class="dl" href="assets/mneme-mark-mono.svg" target="_blank" rel="noopener">
+        <span class="ico">SVG</span>
+        <div><div class="name">mneme-mark-mono.svg</div><div class="desc">Single-colour, uses currentColor</div></div>
+      </a>
+      <a class="dl" href="assets/mneme-lockup-horizontal.svg" target="_blank" rel="noopener">
+        <span class="ico">SVG</span>
+        <div><div class="name">mneme-lockup-horizontal.svg</div><div class="desc">Mark + wordmark lockup</div></div>
+      </a>
+      <a class="dl" href="assets/mneme-wordmark.svg" target="_blank" rel="noopener">
+        <span class="ico">SVG</span>
+        <div><div class="name">mneme-wordmark.svg</div><div class="desc">Wordmark only (Instrument Serif)</div></div>
+      </a>
+      <a class="dl" href="assets/tokens.css" target="_blank" rel="noopener">
+        <span class="ico">CSS</span>
+        <div><div class="name">tokens.css</div><div class="desc">All design tokens as CSS variables</div></div>
+      </a>
+      <a class="dl" href="assets/tokens.json" target="_blank" rel="noopener">
+        <span class="ico">JSON</span>
+        <div><div class="name">tokens.json</div><div class="desc">Machine-readable token spec</div></div>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span>mneme — brand package v1.0</span>
+    <span>memory that belongs to you</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

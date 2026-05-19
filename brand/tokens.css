@@ -1,0 +1,112 @@
+/* ============================================================
+   mneme — design tokens
+   Drop this file into your project and reference the CSS vars,
+   or copy the values you need. Light surface is the default;
+   dark surfaces use the `.on-ink` modifier.
+   ============================================================ */
+
+:root {
+  /* ---- Colour: warm neutrals ---- */
+  --mneme-ink: #15110f; /* primary text on paper */
+  --mneme-ink-soft: #3d342c; /* secondary text */
+  --mneme-ink-mute: #8a7a6a; /* labels, captions, metadata */
+  --mneme-ink-line: #d9cfbd; /* hairline rules, dividers */
+
+  --mneme-paper: #f2ece0; /* primary background */
+  --mneme-paper-2: #ebe3d4; /* inset card / hover row */
+  --mneme-paper-3: #e2d8c5; /* pressed / heavier inset */
+  --mneme-cream: #faf6ee; /* lift, highlight, dialog bg */
+
+  /* ---- Colour: accent ---- */
+  --mneme-orange: #e0651d; /* primary action, accent */
+  --mneme-orange-deep: #b8481a; /* hover / pressed */
+  --mneme-orange-soft: #f3a06b; /* tint, illustration */
+  --mneme-orange-wash: #fbe1cb; /* badge bg, soft surface */
+
+  /* ---- Colour: dark surfaces (inverse) ---- */
+  --mneme-ink-bg: #1a1714; /* primary dark surface */
+  --mneme-ink-bg-2: #221e1a; /* dark card / inset */
+  --mneme-ink-bg-3: #2c2722; /* dark hover */
+  --mneme-on-ink: #f2ece0; /* text on dark */
+  --mneme-on-ink-mute: #ad9a82; /* secondary on dark */
+
+  /* ---- Colour: status (used sparingly) ---- */
+  --mneme-good: #4f7a4a; /* matte sage */
+  --mneme-warn: #c28a1e; /* matte amber */
+  --mneme-bad: #b23a2a; /* matte rust */
+
+  /* ---- Typography ---- */
+  --mneme-font-display: "Instrument Serif", "Newsreader", Georgia, serif;
+  --mneme-font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --mneme-font-sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --mneme-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --mneme-text-xs: 11px; /* labels, meta */
+  --mneme-text-sm: 13px; /* UI body, captions */
+  --mneme-text-base: 16px; /* default body */
+  --mneme-text-lg: 19px; /* lead paragraph */
+  --mneme-text-xl: 24px; /* card title */
+  --mneme-text-2xl: 32px; /* section heading */
+  --mneme-text-3xl: 44px; /* page heading */
+  --mneme-text-4xl: 64px; /* display */
+  --mneme-text-5xl: 96px; /* hero display */
+
+  --mneme-leading-tight: 1.1;
+  --mneme-leading-snug: 1.25;
+  --mneme-leading-normal: 1.5;
+  --mneme-leading-loose: 1.7;
+
+  --mneme-track-tight: -0.025em; /* display */
+  --mneme-track-snug: -0.015em; /* large body */
+  --mneme-track-normal: 0em;
+  --mneme-track-wide: 0.06em; /* small caps style */
+  --mneme-track-wider: 0.22em; /* eyebrow labels */
+
+  /* ---- Spacing (4px base) ---- */
+  --mneme-space-1: 4px;
+  --mneme-space-2: 8px;
+  --mneme-space-3: 12px;
+  --mneme-space-4: 16px;
+  --mneme-space-5: 24px;
+  --mneme-space-6: 32px;
+  --mneme-space-7: 48px;
+  --mneme-space-8: 64px;
+  --mneme-space-9: 96px;
+  --mneme-space-10: 128px;
+
+  /* ---- Radii ---- */
+  --mneme-radius-sm: 4px;
+  --mneme-radius-md: 8px;
+  --mneme-radius-lg: 14px;
+  --mneme-radius-xl: 22px;
+  --mneme-radius-pill: 999px;
+
+  /* ---- Borders ---- */
+  --mneme-border: 1px solid var(--mneme-ink-line);
+  --mneme-border-soft: 1px solid rgba(21, 17, 15, 0.08);
+
+  /* ---- Elevation (used sparingly — brand is matte) ---- */
+  --mneme-shadow-1: 0 1px 0 rgba(21, 17, 15, 0.04);
+  --mneme-shadow-2: 0 6px 18px -10px rgba(21, 17, 15, 0.18);
+  --mneme-shadow-pop: 0 14px 32px -12px rgba(224, 101, 29, 0.32);
+
+  /* ---- Motion ---- */
+  --mneme-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --mneme-dur-fast: 120ms;
+  --mneme-dur-base: 200ms;
+  --mneme-dur-slow: 360ms;
+}
+
+/* Base — apply to <body> or your app shell */
+.mneme-surface {
+  background: var(--mneme-paper);
+  color: var(--mneme-ink);
+  font-family: var(--mneme-font-serif);
+  font-size: var(--mneme-text-base);
+  line-height: var(--mneme-leading-normal);
+}
+
+.mneme-surface.on-ink {
+  background: var(--mneme-ink-bg);
+  color: var(--mneme-on-ink);
+}

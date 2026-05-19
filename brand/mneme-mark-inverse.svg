@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="mneme mark, inverse">
+  <title>mneme mark, inverse</title>
+  <defs>
+    <filter id="grain-i" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="2" stitchTiles="stitch"></feTurbulence>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0"></feColorMatrix>
+    </filter>
+    <clipPath id="stack-clip-i">
+      <rect x="96" y="336" width="320" height="72" rx="16"></rect>
+      <rect x="128" y="232" width="256" height="72" rx="16"></rect>
+      <rect x="168" y="128" width="176" height="72" rx="16"></rect>
+    </clipPath>
+  </defs>
+  <g>
+    <rect x="96" y="336" width="320" height="72" rx="16" fill="#F2ECE0"></rect>
+    <rect x="128" y="232" width="256" height="72" rx="16" fill="#F2ECE0"></rect>
+    <rect x="168" y="128" width="176" height="72" rx="16" fill="#E0651D"></rect>
+  </g>
+  <g clip-path="url(#stack-clip-i)" style="mix-blend-mode: multiply" opacity="0.35">
+    <rect x="0" y="0" width="512" height="512" filter="url(#grain-i)"></rect>
+  </g>
+</svg>
