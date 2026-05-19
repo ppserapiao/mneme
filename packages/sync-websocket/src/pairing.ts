@@ -4,7 +4,7 @@ import {
   Mneme,
   MnemeError,
   type PairingSession,
-} from '@mneme/sdk'
+} from '@mnemehq/sdk'
 import type { Server, ServerWebSocket } from 'bun'
 import { type WsRequest, type WsResponse, isErrorResponse, newRequestId } from './protocol'
 

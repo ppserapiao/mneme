@@ -15,8 +15,8 @@ The first artifact a design partner can hold in their hands shapes how the produ
 
 Reorder the first three weeks of the published timeline:
 
-1. **Week 1** — Monorepo skeleton, `@mneme/protocol` (canonical types + Zod schemas), `@mneme/sdk` v0.0.1 (local-only SQLite-backed `Mneme` class with `remember/recall/forget/supersede`), protocol v0.1 draft, brand integration, CI.
-2. **Week 2** — Encryption envelope (AES-256-GCM body, master-key derivation, signing keys), `@mneme/embedder-local` and `@mneme/embedder-voyage`, MCP server scaffold against the local SDK.
+1. **Week 1** — Monorepo skeleton, `@mnemehq/protocol` (canonical types + Zod schemas), `@mnemehq/sdk` v0.0.1 (local-only SQLite-backed `Mneme` class with `remember/recall/forget/supersede`), protocol v0.1 draft, brand integration, CI.
+2. **Week 2** — Encryption envelope (AES-256-GCM body, master-key derivation, signing keys), `@mnemehq/embedder-local` and `@mnemehq/embedder-voyage`, MCP server scaffold against the local SDK.
 3. **Week 3** — Hosted backend (`apps/api`) on Postgres + pgvector, exposing the same protocol. The hosted API ships as *one of several sync targets*, not as "the" Mneme.
 
 The CLAUDE.md / ARCHITECTURE.md tech stack choices are otherwise unchanged. Fly.io / WorkOS / Postgres slot in at week 3 when we actually need them.
@@ -24,7 +24,7 @@ The CLAUDE.md / ARCHITECTURE.md tech stack choices are otherwise unchanged. Fly.
 ## Consequences
 
 Positive:
-- The first artifact a developer installs (`bun add @mneme/sdk`) runs entirely on their machine, against a SQLite file they own. Local-first is felt, not claimed.
+- The first artifact a developer installs (`bun add @mnemehq/sdk`) runs entirely on their machine, against a SQLite file they own. Local-first is felt, not claimed.
 - We can recruit design partners on a real working SDK in week 1 instead of a deployed-but-empty hosted endpoint.
 - The hosted API in week 3 is built against a stable SDK contract, which forces clean boundaries.
 - We defer the Fly.io / WorkOS / Postgres bring-up by ~2 weeks, saving infrastructure cost while the product surface is still in flux.

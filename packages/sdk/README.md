@@ -1,14 +1,14 @@
-# @mneme/sdk
+# @mnemehq/sdk
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.1.0` — first npm release. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network transports ship in the companion [`@mneme/sync-websocket`](../sync-websocket) package; hosted backend lands in v0.2.0.
+> Status: `v0.1.0` — first npm release. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network transports ship in the companion [`@mnemehq/sync-websocket`](../sync-websocket) package; hosted backend lands in v0.2.0.
 
 ## Install
 
 ```sh
-bun add @mneme/sdk
-# or npm i @mneme/sdk
+bun add @mnemehq/sdk
+# or npm i @mnemehq/sdk
 ```
 
 Requires Bun `>= 1.3` (the SDK uses `bun:sqlite` natively). Node support arrives in v0.1.
@@ -16,7 +16,7 @@ Requires Bun `>= 1.3` (the SDK uses `bun:sqlite` natively). Node support arrives
 ## Zero-config local mode
 
 ```ts
-import { Mneme } from '@mneme/sdk'
+import { Mneme } from '@mnemehq/sdk'
 
 const mneme = new Mneme()
 
@@ -43,7 +43,7 @@ Pass `path: ':memory:'` for an ephemeral store (recommended in tests).
 Encryption uses **AES-256-GCM** with per-record data keys wrapped under a **random master key**. The master key is itself wrapped under **two** independent keys: one derived from your passphrase via Argon2id, one derived from a 24-word BIP-39 **recovery phrase**. Either unlocks the store; either unlocks the SAME records.
 
 ```ts
-import { Mneme } from '@mneme/sdk'
+import { Mneme } from '@mnemehq/sdk'
 
 // First time — generate keys and the recovery phrase
 const { mneme, recoveryPhrase } = await Mneme.initialize({
@@ -66,17 +66,17 @@ const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
 - `new Mneme()` (sync) refuses any encryption option — encrypted mode requires `Mneme.initialize()` or `Mneme.open()`.
 - Wrong passphrase / invalid recovery phrase raises `MnemeError` with code `unauthorized` before any record is touched.
 - `Mneme.publicKey` is the **stable Ed25519 public key** for the store — same value whether you unlocked with passphrase or recovery phrase. Use it to externally verify the `signature` on any record this store has written.
-- Lexical BM25 recall is **disabled under encryption** (FTS5 cannot index ciphertext) and raises `MnemeError({ code: 'unsupported_payload_mode' })`. Combine with `@mneme/embedder-local` for semantic recall over encrypted memory — embeddings are computed pre-encryption.
+- Lexical BM25 recall is **disabled under encryption** (FTS5 cannot index ciphertext) and raises `MnemeError({ code: 'unsupported_payload_mode' })`. Combine with `@mnemehq/embedder-local` for semantic recall over encrypted memory — embeddings are computed pre-encryption.
 
 See [ADR 0006](../../decisions/0006-recovery-phrase-and-signed-writes.md) for the dual-wrapping design and Ed25519 derivation; [ADR 0005](../../decisions/0005-encryption-envelope-v0-3.md) for the underlying envelope.
 
 ## Semantic recall (opt-in)
 
-Install [`@mneme/embedder-local`](../embedder-local) and pass it in:
+Install [`@mnemehq/embedder-local`](../embedder-local) and pass it in:
 
 ```ts
-import { Mneme } from '@mneme/sdk'
-import { LocalEmbedder } from '@mneme/embedder-local'
+import { Mneme } from '@mnemehq/sdk'
+import { LocalEmbedder } from '@mnemehq/embedder-local'
 
 const mneme = new Mneme({ embedder: new LocalEmbedder() })
 
@@ -128,12 +128,12 @@ After pairing, B has its own keyring (own passphrase, own recovery phrase) wrapp
 
 The cryptographic design (X25519 ECDH + HKDF-SHA256 + AES-256-GCM, 6-digit SAS, 5-minute session expiry, replay protection) is in [ADR 0009](../../decisions/0009-multi-device-pairing-ceremony.md). **Always verify the SAS on a side channel** the user trusts (in person, voice call, signed Signal message) — if you skip verification, an active MITM can substitute their own keys.
 
-For real cross-machine pairing over the network, use [`@mneme/sync-websocket`](../sync-websocket) which wraps the three-message ceremony in a WebSocket flow with `onSasReady` callbacks gating commit.
+For real cross-machine pairing over the network, use [`@mnemehq/sync-websocket`](../sync-websocket) which wraps the three-message ceremony in a WebSocket flow with `onSasReady` callbacks gating commit.
 
 ## Sync (multi-device, transport-agnostic)
 
 ```ts
-import { Mneme } from '@mneme/sdk'
+import { Mneme } from '@mnemehq/sdk'
 
 const alice = new Mneme({ path: '/path/to/alice.sqlite', ownerId: 'pedro' })
 const bob = new Mneme({ path: '/path/to/bob.sqlite', ownerId: 'pedro' })
@@ -155,7 +155,7 @@ The engine is the load-bearing wall of the differentiation — it converges two 
 
 The merge is commutative, associative, and idempotent. See [ADR 0008](../../decisions/0008-sync-engine-design.md) for the full design.
 
-`SyncPeer` is the transport-agnostic interface (`catalog`, `fetch`, `push`). The SDK ships `InProcessSyncPeer` for tests / single-process demos. [`@mneme/sync-websocket`](../sync-websocket) ships `WebSocketSyncPeer` + `WebSocketSyncServer` for real cross-machine sync. The hosted Mneme Cloud target (v0.1.0) will implement the same three methods over HTTPS+JSON. The engine doesn't change.
+`SyncPeer` is the transport-agnostic interface (`catalog`, `fetch`, `push`). The SDK ships `InProcessSyncPeer` for tests / single-process demos. [`@mnemehq/sync-websocket`](../sync-websocket) ships `WebSocketSyncPeer` + `WebSocketSyncServer` for real cross-machine sync. The hosted Mneme Cloud target (v0.1.0) will implement the same three methods over HTTPS+JSON. The engine doesn't change.
 
 > Encrypted sync currently requires both peers to share the same master key. The **pairing ceremony** that establishes that shared key on a second device is the v0.0.7 work. v0.0.6 ships the engine.
 
@@ -196,7 +196,7 @@ Verbs:
 
 ## Design notes
 
-- **Search is lexical (FTS5 BM25) by default, semantic when an `embedder` is configured.** Embedders are pluggable via the [`Embedder`](./src/embedder/types.ts) interface. Ship-it implementations live in sibling packages: `@mneme/embedder-local` (on-device via transformers.js), `@mneme/embedder-voyage` (hosted, coming soon).
+- **Search is lexical (FTS5 BM25) by default, semantic when an `embedder` is configured.** Embedders are pluggable via the [`Embedder`](./src/embedder/types.ts) interface. Ship-it implementations live in sibling packages: `@mnemehq/embedder-local` (on-device via transformers.js), `@mnemehq/embedder-voyage` (hosted, coming soon).
 - **Single embedder per store.** Records written without an embedder are invisible to semantic search. Records written with a different embedder produce stale vectors. Re-embedding migration lands in a later version — see [ADR 0004](../../decisions/0004-local-first-embedding-strategy.md).
 - **Append-only at the storage layer.** Forgetting and superseding never delete rows — they mark lifecycle state and filter from queries. This preserves audit history and matches the protocol's lifecycle semantics.
 - **Owner isolation enforced at every verb.** A record written under `ownerId: 'pedro'` is unreachable from a Mneme constructed with `ownerId: 'ana'`, even against the same database file.

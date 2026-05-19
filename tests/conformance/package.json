@@ -1,5 +1,5 @@
 {
-  "name": "@mneme/conformance",
+  "name": "@mnemehq/conformance",
   "version": "0.0.1",
   "private": true,
   "description": "Conformance test suite for the mneme Protocol — runs against any MnemeStore implementation.",
@@ -19,8 +19,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@mneme/protocol": "workspace:*",
-    "@mneme/sdk": "workspace:*",
+    "@mnemehq/protocol": "workspace:*",
+    "@mnemehq/sdk": "workspace:*",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "@scure/bip39": "^2.2.0"

@@ -69,7 +69,7 @@ The 3-message pairing handshake needs a human-in-the-loop pause between the seco
 Device A:
 
 ```ts
-import { serveForPairing } from '@mneme/sync-websocket'
+import { serveForPairing } from '@mnemehq/sync-websocket'
 
 const result = await serveForPairing(alice, {
   port: 7078,
@@ -85,7 +85,7 @@ const result = await serveForPairing(alice, {
 Device B:
 
 ```ts
-import { pairOverWebSocket } from '@mneme/sync-websocket'
+import { pairOverWebSocket } from '@mnemehq/sync-websocket'
 
 const { mneme: bob, recoveryPhrase } = await pairOverWebSocket({
   url: 'ws://192.168.1.10:7078',

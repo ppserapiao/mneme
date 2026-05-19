@@ -1,7 +1,7 @@
 {
-  "name": "@mneme/embedder-local",
+  "name": "@mnemehq/embedder-local",
   "version": "0.1.0",
-  "description": "On-device embeddings for @mneme/sdk via @huggingface/transformers. Zero-config local mode with Xenova/all-MiniLM-L6-v2.",
+  "description": "On-device embeddings for @mnemehq/sdk via @huggingface/transformers. Zero-config local mode with Xenova/all-MiniLM-L6-v2.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -23,7 +23,7 @@
     "@huggingface/transformers": "^3.0.0"
   },
   "peerDependencies": {
-    "@mneme/sdk": "workspace:*"
+    "@mnemehq/sdk": "workspace:*"
   },
   "publishConfig": {
     "access": "public",
@@ -37,7 +37,7 @@
       }
     },
     "peerDependencies": {
-      "@mneme/sdk": "^0.1.0"
+      "@mnemehq/sdk": "^0.1.0"
     }
   },
   "repository": {

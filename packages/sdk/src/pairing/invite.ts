@@ -1,4 +1,4 @@
-import { MnemeError } from '@mneme/protocol'
+import { MnemeError } from '@mnemehq/protocol'
 import { ulid } from 'ulid'
 import { encrypt, fromBase64Url, toBase64Url } from '../crypto'
 import {

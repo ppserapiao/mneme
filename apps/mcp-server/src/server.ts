@@ -1,4 +1,4 @@
-import { Mneme } from '@mneme/sdk'
+import { Mneme } from '@mnemehq/sdk'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ServerConfig } from './config'
 import {

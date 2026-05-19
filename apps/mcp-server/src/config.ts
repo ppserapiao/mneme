@@ -1,4 +1,4 @@
-import { defaultStoragePath } from '@mneme/sdk'
+import { defaultStoragePath } from '@mnemehq/sdk'
 
 export type ServerConfig = {
   /** SQLite store path. Defaults to the SDK's platform-appropriate location. */

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import type { MemoryLifecycle } from '@mneme/protocol'
+import type { MemoryLifecycle } from '@mnemehq/protocol'
 import { type InProcessSyncPeer, Mneme } from './index'
 import { mergeLifecycle } from './sync/lifecycle-merge'
 

@@ -1,4 +1,4 @@
-import { MEMORY_KINDS, type MemoryKind, type Mneme, MnemeError } from '@mneme/sdk'
+import { MEMORY_KINDS, type MemoryKind, type Mneme, MnemeError } from '@mnemehq/sdk'
 import { z } from 'zod'
 
 /**
@@ -33,7 +33,7 @@ function handlerError(err: unknown): ToolTextResult {
 // The Zod shapes below are used by the MCP SDK for input validation. Keeping
 // them tight (enums, length bounds) means a Claude Code prompt that asks the
 // model to call an mneme tool surfaces clear validation errors at the tool
-// boundary, not somewhere inside @mneme/sdk.
+// boundary, not somewhere inside @mnemehq/sdk.
 
 const KIND_VALUES = MEMORY_KINDS as ReadonlyArray<MemoryKind>
 const kindSchema = z.enum(KIND_VALUES as [MemoryKind, ...MemoryKind[]])

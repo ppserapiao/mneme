@@ -6,7 +6,7 @@ import {
   type OwnerId,
   type SyncCatalog,
   type SyncPeer,
-} from '@mneme/sdk'
+} from '@mnemehq/sdk'
 import { type WsRequest, type WsResponse, isErrorResponse, newRequestId } from './protocol'
 
 export type WebSocketSyncPeerOptions = {

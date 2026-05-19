@@ -3,8 +3,8 @@
  * implementation — semantic search runs through SQLite FTS5 lexical search.
  *
  * Future packages:
- *   - `@mneme/embedder-local` — on-device ONNX models via transformers.js
- *   - `@mneme/embedder-voyage` — Voyage AI hosted embeddings
+ *   - `@mnemehq/embedder-local` — on-device ONNX models via transformers.js
+ *   - `@mnemehq/embedder-voyage` — Voyage AI hosted embeddings
  *
  * All embedders MUST return unit-norm vectors so cosine similarity reduces to
  * a dot product.

@@ -1,5 +1,5 @@
 {
-  "name": "@mneme/mcp-server",
+  "name": "@mnemehq/mcp-server",
   "version": "0.1.0",
   "description": "Model Context Protocol server for mneme — exposes the user-sovereign memory layer as MCP tools for Claude Code, Claude.ai, Cursor, and any MCP host.",
   "license": "Apache-2.0",
@@ -16,7 +16,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@mneme/sdk": "workspace:*",
+    "@mnemehq/sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23"
   },

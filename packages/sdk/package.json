@@ -1,5 +1,5 @@
 {
-  "name": "@mneme/sdk",
+  "name": "@mnemehq/sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for the Mneme Protocol — local-first, user-sovereign memory for AI apps.",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@mneme/protocol": "workspace:*",
+    "@mnemehq/protocol": "workspace:*",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "@scure/bip39": "^2.2.0",
