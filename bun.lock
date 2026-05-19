@@ -32,6 +32,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@mneme/protocol": "workspace:*",
+        "@noble/hashes": "^2.2.0",
         "ulid": "^2.3.0",
       },
     },
@@ -41,6 +42,7 @@
       "dependencies": {
         "@mneme/protocol": "workspace:*",
         "@mneme/sdk": "workspace:*",
+        "@noble/hashes": "^2.2.0",
       },
     },
   },
@@ -128,6 +130,8 @@
     "@mneme/protocol": ["@mneme/protocol@workspace:packages/protocol"],
 
     "@mneme/sdk": ["@mneme/sdk@workspace:packages/sdk"],
+
+    "@noble/hashes": ["@noble/hashes@2.2.0", "", {}, "sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg=="],
 
     "@protobufjs/aspromise": ["@protobufjs/aspromise@1.1.2", "", {}, "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ=="],
 

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@mneme/protocol": "workspace:*",
-    "@mneme/sdk": "workspace:*"
+    "@mneme/sdk": "workspace:*",
+    "@noble/hashes": "^2.2.0"
   }
 }

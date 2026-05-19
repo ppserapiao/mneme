@@ -6,7 +6,8 @@ import type {
   SearchResult,
   WriteMetadata,
 } from '@mneme/protocol'
-import { OwnerIdSchema } from '@mneme/protocol'
+import { MnemeError, OwnerIdSchema } from '@mneme/protocol'
+import type { KdfParams } from './crypto'
 import type { Embedder } from './embedder/types'
 import { SqliteStore } from './store/sqlite'
 import type { Clock } from './util/clock'
@@ -29,6 +30,28 @@ export type MnemeOptions = {
    * against any provider.
    */
   embedder?: Embedder
+
+  /**
+   * Passphrase for the encryption envelope. When set, plaintext bodies are
+   * sealed at rest with AES-256-GCM and the master key is derived via
+   * Argon2id with a salt stored in the database.
+   *
+   * Encrypted mode requires the async factory: `await Mneme.open({ passphrase })`.
+   * The synchronous `new Mneme()` constructor stays plaintext-only and throws
+   * when given a passphrase.
+   *
+   * v0.0.3 has NO recovery phrase yet — losing the passphrase means losing
+   * the data. Recovery phrase support lands in v0.0.4.
+   */
+  passphrase?: string
+
+  /**
+   * Argon2id parameters used the first time an encrypted store is initialised.
+   * Defaults to OWASP-recommended interactive settings (64 MiB, 3 iterations).
+   * Reduce for tests; increase for high-security deployments. Stored to the
+   * DB on first init, ignored on subsequent opens (the persisted params win).
+   */
+  kdfParams?: KdfParams
 }
 
 export type RememberInput = {
@@ -63,12 +86,50 @@ export class Mneme {
   private readonly ownerId: OwnerId
 
   constructor(options: MnemeOptions = {}) {
+    if (options.passphrase !== undefined) {
+      throw new MnemeError(
+        'invalid_record',
+        'Encrypted mode requires the async factory: await Mneme.open({ passphrase }). The sync constructor is plaintext-only.',
+      )
+    }
     this.ownerId = OwnerIdSchema.parse(options.ownerId ?? 'local')
     this.store = new SqliteStore({
       path: options.path ?? defaultStoragePath(),
       ...(options.clock ? { clock: options.clock } : {}),
       ...(options.embedder ? { embedder: options.embedder } : {}),
     })
+  }
+
+  /**
+   * Recommended way to construct a `Mneme` instance, especially when
+   * encryption is desired. Supports both modes:
+   *
+   *   const m = await Mneme.open()                    // plaintext local mode
+   *   const m = await Mneme.open({ passphrase: 'x' }) // encrypted mode
+   *
+   * In encrypted mode the master key is derived from the passphrase via
+   * Argon2id and verified against a stored verifier; a wrong passphrase
+   * raises an `unauthorized` MnemeError without decrypting any record.
+   */
+  static async open(options: MnemeOptions = {}): Promise<Mneme> {
+    const { passphrase, kdfParams, ...rest } = options
+    if (passphrase === undefined) {
+      return new Mneme(rest)
+    }
+    // Construct via the sync path with passphrase removed so the constructor
+    // does not refuse it, then layer encryption on by deriving the master key.
+    const mneme = new Mneme(rest)
+    if (kdfParams !== undefined) {
+      await mneme.store.openMasterKey(passphrase, kdfParams)
+    } else {
+      await mneme.store.openMasterKey(passphrase)
+    }
+    return mneme
+  }
+
+  /** Whether the underlying store is in encryption-at-rest mode. */
+  get encrypted(): boolean {
+    return this.store.encrypted
   }
 
   /** Persist a new memory. Returns the canonical record that was stored. */

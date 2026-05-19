@@ -15,6 +15,9 @@ export { defaultStoragePath } from './util/path'
 
 export type { Embedder } from './embedder/types'
 
+export { DEFAULT_KDF_PARAMS } from './crypto'
+export type { KdfParams } from './crypto'
+
 // Re-export the canonical protocol surface so consumers only need one import.
 export {
   MEMORY_KINDS,
