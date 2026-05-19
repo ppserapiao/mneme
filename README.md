@@ -30,7 +30,8 @@ mneme/
 │   ├── protocol/         ← @mneme/protocol — the open spec, as types
 │   ├── sdk/              ← @mneme/sdk — TypeScript reference implementation
 │   └── embedder-local/   ← @mneme/embedder-local — on-device embeddings via transformers.js
-├── apps/              ← Deployable surfaces (API, MCP server, consumer app, …)
+├── apps/
+│   └── mcp-server/       ← @mneme/mcp-server — Model Context Protocol server for Claude Code et al.
 ├── docs/
 │   └── protocol/      ← Versioned Mneme Protocol spec
 ├── decisions/         ← Architecture Decision Records (ADRs)
@@ -70,6 +71,18 @@ const matches = await mneme.recall('feedback style on pull requests')
 ```
 
 All three concerns — encryption, recovery, semantic recall — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
+
+### Use it from Claude Code (MCP)
+
+```sh
+git clone https://github.com/ppserapiao/mneme
+cd mneme
+bun install
+
+claude mcp add mneme bun -- run apps/mcp-server/src/index.ts
+```
+
+Now `mneme_remember`, `mneme_recall`, `mneme_get`, `mneme_forget`, `mneme_supersede`, `mneme_export` are available as MCP tools in Claude Code. See [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for the encrypted-mode setup.
 
 ## For contributors
 
