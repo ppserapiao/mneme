@@ -153,6 +153,23 @@ bun run --filter '*' dev    # runs `tsdown --watch` in every package
 
 If a check fails, fix the root cause. Do not skip hooks or disable the check.
 
+### Smoke test (verifies the published packages end-to-end)
+
+`bun run smoke` is the single command that proves mneme works as a system from a consumer's perspective. It is the gap-closer between "118 unit tests pass" and "a stranger can `bun add @mnemehq/sdk` and have it work."
+
+Six scenarios, one run, ~15 seconds:
+
+1. Fresh `bun add @mnemehq/{sdk,sync-websocket,embedder-local}` in an isolated `/tmp` project (installs from npm, NOT from the workspace)
+2. Full SDK lifecycle: initialize encrypted store → remember 5 memories → semantic recall returns the right one → forget + supersede → exportAll
+3. Encryption at rest: raw `bun:sqlite` read of the resulting file finds zero plaintext leaks; every row is `body_mode = 'aes-gcm-256'`
+4. BIP-39 recovery phrase opens the same store from a fresh handle (disaster-recovery path)
+5. WebSocket pairing across **two separate Bun subprocesses** — emitted SAS values match on both sides, master-key bundle transfers, bob's keyring bootstraps under his own passphrase
+6. WebSocket sync converges — alice writes 3, bob writes 2, both end up with all 5
+
+Run with `--keep` to preserve the working directory (`/tmp/mneme-smoke-<timestamp>`) for inspection. The smoke runs against the live npm registry by default; before a release, run it after every publish to confirm the artefacts work.
+
+When the smoke breaks, that's a real, user-visible bug — not flakiness. Don't merge fixes that don't restore green.
+
 ### Publishing to npm (runbook)
 
 We publish under the `@mnemehq` scope on npmjs.com. The bare `@mneme` scope was already taken by an unrelated user with four published packages — see ADR 0011 §6 for the full pivot rationale. The full strategy rationale is in [ADR 0011](./decisions/0011-npm-publishing.md); this is the operational sequence.
