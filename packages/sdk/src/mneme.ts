@@ -7,6 +7,7 @@ import type {
   WriteMetadata,
 } from '@mneme/protocol'
 import { OwnerIdSchema } from '@mneme/protocol'
+import type { Embedder } from './embedder/types'
 import { SqliteStore } from './store/sqlite'
 import type { Clock } from './util/clock'
 import { defaultStoragePath } from './util/path'
@@ -18,6 +19,16 @@ export type MnemeOptions = {
   ownerId?: string
   /** Time source. Override in tests for determinism. */
   clock?: Clock
+  /**
+   * Optional embedder. When supplied, `remember` persists embeddings alongside
+   * each plaintext body and `recall` returns records ranked by cosine
+   * similarity. Without one, `recall` uses lexical BM25 via SQLite FTS5.
+   *
+   * Install `@mneme/embedder-local` for on-device embeddings via
+   * `@huggingface/transformers`, or implement the `Embedder` interface
+   * against any provider.
+   */
+  embedder?: Embedder
 }
 
 export type RememberInput = {
@@ -56,6 +67,7 @@ export class Mneme {
     this.store = new SqliteStore({
       path: options.path ?? defaultStoragePath(),
       ...(options.clock ? { clock: options.clock } : {}),
+      ...(options.embedder ? { embedder: options.embedder } : {}),
     })
   }
 
@@ -75,7 +87,7 @@ export class Mneme {
     })
   }
 
-  /** Semantic-ish search over plaintext memories. Returns ranked records with scores. */
+  /** Search over plaintext memories. Semantic when an `embedder` is configured; lexical BM25 otherwise. Returns ranked records with scores. */
   async recall(query: string, options: RecallOptions = {}): Promise<SearchResult[]> {
     return this.store.search({
       ownerId: this.ownerId,

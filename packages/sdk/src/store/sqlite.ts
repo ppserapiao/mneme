@@ -20,6 +20,8 @@ import {
   type WriteInput,
 } from '@mneme/protocol'
 import { ulid } from 'ulid'
+import { cosineSimilarity } from '../embedder/cosine'
+import type { Embedder } from '../embedder/types'
 import { type Clock, systemClock } from '../util/clock'
 import { ensureParentDir } from '../util/path'
 import { SCHEMA_V1 } from './schema'
@@ -27,6 +29,12 @@ import { SCHEMA_V1 } from './schema'
 export type SqliteStoreOptions = {
   path: string
   clock?: Clock
+  /**
+   * Optional embedder. When provided, plaintext bodies are embedded on write
+   * and `search` returns results ranked by cosine similarity against the query
+   * embedding. Without an embedder, `search` falls back to SQLite FTS5 BM25.
+   */
+  embedder?: Embedder
 }
 
 type MemoryRow = {
@@ -52,6 +60,7 @@ type MemoryRow = {
 export class SqliteStore implements MnemeStore {
   private readonly db: Database
   private readonly clock: Clock
+  private readonly embedder: Embedder | undefined
 
   constructor(options: SqliteStoreOptions) {
     ensureParentDir(options.path)
@@ -60,12 +69,14 @@ export class SqliteStore implements MnemeStore {
     this.db.exec('PRAGMA foreign_keys = ON')
     this.db.exec('PRAGMA synchronous = NORMAL')
     this.clock = options.clock ?? systemClock
+    this.embedder = options.embedder
     this.db.exec(SCHEMA_V1)
   }
 
   async write(input: WriteInput): Promise<MemoryRecord> {
     const now = this.clock.now()
     const id = MemoryIdSchema.parse(ulid(now.getTime()))
+    const embedding = await this.embedIfPossible(input.body)
     const record = MemoryRecordSchema.parse({
       id,
       ownerId: input.ownerId,
@@ -73,6 +84,7 @@ export class SqliteStore implements MnemeStore {
       body: input.body,
       metadata: buildMetadata(input, now),
       lifecycle: {},
+      ...(embedding ? { embedding } : {}),
     })
     this.insertRecord(record)
     return record
@@ -89,6 +101,13 @@ export class SqliteStore implements MnemeStore {
   }
 
   async search(input: SearchInput): Promise<SearchResult[]> {
+    if (this.embedder) {
+      return this.semanticSearch(input, this.embedder)
+    }
+    return this.lexicalSearch(input)
+  }
+
+  private lexicalSearch(input: SearchInput): SearchResult[] {
     const limit = clampLimit(input.limit ?? 10)
     const nowIso = this.clock.now().toISOString()
     const ftsQuery = toFtsQuery(input.query)
@@ -125,6 +144,47 @@ export class SqliteStore implements MnemeStore {
     }))
   }
 
+  private async semanticSearch(input: SearchInput, embedder: Embedder): Promise<SearchResult[]> {
+    const limit = clampLimit(input.limit ?? 10)
+    const nowIso = this.clock.now().toISOString()
+    const queryVec = await embedder.embed(input.query)
+
+    const kindFilter =
+      input.kinds && input.kinds.length > 0
+        ? ` AND m.kind IN (${input.kinds.map(() => '?').join(',')})`
+        : ''
+
+    const sql = `
+      SELECT m.*
+      FROM memories m
+      WHERE m.owner_id = ?
+        AND m.superseded_by IS NULL
+        AND m.embedding IS NOT NULL
+        AND (m.expires_at IS NULL OR m.expires_at > ?)
+        AND (m.forget_at IS NULL OR m.forget_at > ?)
+        ${kindFilter}
+    `
+    const params: SQLQueryBindings[] = [input.ownerId, nowIso, nowIso]
+    if (input.kinds) params.push(...input.kinds)
+
+    const rows = this.db.query<MemoryRow, SQLQueryBindings[]>(sql).all(...params)
+
+    const ranked: SearchResult[] = []
+    for (const row of rows) {
+      if (!row.embedding) continue
+      const candidateVec = new Float32Array(
+        row.embedding.buffer,
+        row.embedding.byteOffset,
+        row.embedding.byteLength / 4,
+      )
+      if (candidateVec.length !== queryVec.length) continue
+      const score = cosineSimilarity(queryVec, candidateVec)
+      ranked.push({ record: rowToRecord(row), score })
+    }
+    ranked.sort((a, b) => b.score - a.score)
+    return ranked.slice(0, limit)
+  }
+
   async forget(input: ForgetInput): Promise<void> {
     const existing = await this.read(input.ownerId, input.id)
     if (!existing) {
@@ -159,6 +219,7 @@ export class SqliteStore implements MnemeStore {
 
     const now = this.clock.now()
     const newId = MemoryIdSchema.parse(ulid(now.getTime()))
+    const embedding = await this.embedIfPossible(input.replacement.body)
     const replacement = MemoryRecordSchema.parse({
       id: newId,
       ownerId: input.replacement.ownerId,
@@ -166,6 +227,7 @@ export class SqliteStore implements MnemeStore {
       body: input.replacement.body,
       metadata: buildMetadata(input.replacement, now),
       lifecycle: {},
+      ...(embedding ? { embedding } : {}),
     })
     const previousLifecycle: MemoryLifecycle = {
       ...previous.lifecycle,
@@ -202,6 +264,18 @@ export class SqliteStore implements MnemeStore {
 
   close(): void {
     this.db.close()
+  }
+
+  /**
+   * Embed a plaintext body when an embedder is configured. Returns undefined
+   * for encrypted payloads (the embedder cannot see plaintext) or when no
+   * embedder was provided.
+   */
+  private async embedIfPossible(body: Payload): Promise<number[] | undefined> {
+    if (!this.embedder) return undefined
+    if (body.mode !== 'plaintext') return undefined
+    const vec = await this.embedder.embed(body.data)
+    return Array.from(vec)
   }
 
   private insertRecord(record: MemoryRecord): void {
