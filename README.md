@@ -26,9 +26,10 @@ We compete on **whose memory it is**, not on whose retrieval scores half a point
 
 ```
 mneme/
-├── packages/          ← Libraries published to npm
-│   ├── protocol/      ← @mneme/protocol — the open spec, as types
-│   └── sdk/           ← @mneme/sdk — TypeScript reference implementation
+├── packages/             ← Libraries published to npm
+│   ├── protocol/         ← @mneme/protocol — the open spec, as types
+│   ├── sdk/              ← @mneme/sdk — TypeScript reference implementation
+│   └── embedder-local/   ← @mneme/embedder-local — on-device embeddings via transformers.js
 ├── apps/              ← Deployable surfaces (API, MCP server, consumer app, …)
 ├── docs/
 │   └── protocol/      ← Versioned Mneme Protocol spec
@@ -43,21 +44,22 @@ The boundary between `packages/protocol` and everything else is the boundary we 
 
 ## Quickstart
 
-> Coming soon. Tracked under `packages/sdk`.
-
 ```ts
-// Target API for v0.0.1
 import { Mneme } from '@mneme/sdk'
+import { LocalEmbedder } from '@mneme/embedder-local'
 
-const mneme = new Mneme() // zero-config local mode
+const mneme = new Mneme({ embedder: new LocalEmbedder() })
 
 await mneme.remember({
   kind: 'preference',
   body: 'Prefers concise code review comments',
 })
 
-const matches = await mneme.recall('how does this user like feedback?')
+// "feedback style" never appears verbatim — semantic recall finds it anyway.
+const matches = await mneme.recall('feedback style on pull requests')
 ```
+
+`@mneme/embedder-local` is optional. Without it, `recall()` falls back to lexical BM25 via SQLite FTS5 — useful for keyword search and zero-dependency local mode.
 
 ## For contributors
 

@@ -1,9 +1,30 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import type { Embedder } from './embedder/types'
 import { Mneme } from './index'
 import type { Clock } from './util/clock'
 
 function frozenClock(iso: string): Clock {
   return { now: () => new Date(iso) }
+}
+
+/**
+ * Deterministic test embedder. Each dimension flags presence of a keyword in
+ * the input text. Cosine over these vectors is dominated by keyword overlap,
+ * which gives us predictable rankings without needing a real model.
+ */
+function keywordEmbedder(keywords: ReadonlyArray<string>): Embedder {
+  return {
+    dimensions: keywords.length,
+    async embed(text: string): Promise<Float32Array> {
+      const lower = text.toLowerCase()
+      const vec = new Float32Array(keywords.length)
+      for (let i = 0; i < keywords.length; i++) {
+        const kw = keywords[i] as string
+        vec[i] = lower.includes(kw.toLowerCase()) ? 1 : 0
+      }
+      return vec
+    },
+  }
 }
 
 describe('Mneme — local SDK', () => {
@@ -180,5 +201,98 @@ describe('Mneme — isolation between owners', () => {
       pedro.close()
       ana.close()
     }
+  })
+})
+
+describe('Mneme — semantic recall with an embedder', () => {
+  const embedder = keywordEmbedder(['coffee', 'review', 'london', 'typescript'])
+  let mneme: Mneme
+
+  beforeEach(() => {
+    mneme = new Mneme({
+      path: ':memory:',
+      ownerId: 'pedro',
+      clock: frozenClock('2026-05-19T12:00:00.000Z'),
+      embedder,
+    })
+  })
+
+  afterEach(() => {
+    mneme.close()
+  })
+
+  test('persists an embedding on every plaintext write', async () => {
+    const record = await mneme.remember({ kind: 'fact', body: 'loves coffee' })
+    expect(record.embedding).toBeDefined()
+    expect(record.embedding?.length).toBe(4)
+    // Only the "coffee" dimension fires for this body.
+    expect(record.embedding).toEqual([1, 0, 0, 0])
+  })
+
+  test('ranks results by cosine similarity, not lexical match', async () => {
+    await mneme.remember({ kind: 'fact', body: 'loves coffee in the morning' })
+    await mneme.remember({ kind: 'preference', body: 'prefers terse code review feedback' })
+    await mneme.remember({ kind: 'fact', body: 'lives near the river in london' })
+
+    const matches = await mneme.recall('peer review of pull requests')
+    expect(matches.length).toBeGreaterThanOrEqual(1)
+    expect(matches[0]?.record.body).toEqual({
+      mode: 'plaintext',
+      data: 'prefers terse code review feedback',
+    })
+    // Cosine of identical unit vectors is 1.0; for vectors with one shared
+    // hot dimension it is somewhere in (0, 1].
+    const top = matches[0]?.score ?? 0
+    expect(top).toBeGreaterThan(0)
+    expect(top).toBeLessThanOrEqual(1)
+  })
+
+  test('returns only records that have embeddings (excludes encrypted bodies)', async () => {
+    // Plaintext writes get embeddings.
+    const plaintext = await mneme.remember({ kind: 'fact', body: 'coffee tasting notes' })
+    expect(plaintext.embedding).toBeDefined()
+
+    // A record written without the embedder (different Mneme instance, same DB
+    // file) would have no embedding and be invisible to semantic search.
+    const results = await mneme.recall('coffee')
+    expect(results.length).toBe(1)
+    expect(results[0]?.record.id).toBe(plaintext.id)
+  })
+
+  test('respects kind filter under semantic search', async () => {
+    await mneme.remember({ kind: 'fact', body: 'coffee shop on the corner' })
+    await mneme.remember({ kind: 'preference', body: 'coffee with no sugar' })
+
+    const matches = await mneme.recall('coffee', { kinds: ['preference'] })
+    expect(matches.length).toBe(1)
+    expect(matches[0]?.record.kind).toBe('preference')
+  })
+
+  test('respects limit under semantic search', async () => {
+    for (let i = 0; i < 5; i++) {
+      await mneme.remember({ kind: 'fact', body: `coffee note ${i}` })
+    }
+    const matches = await mneme.recall('coffee', { limit: 2 })
+    expect(matches.length).toBe(2)
+  })
+
+  test('supersede produces an embedding for the replacement', async () => {
+    const original = await mneme.remember({
+      kind: 'preference',
+      body: 'review code in detail',
+    })
+    const replacement = await mneme.supersede(original.id, {
+      kind: 'preference',
+      body: 'review code quickly',
+    })
+    expect(replacement.embedding).toBeDefined()
+    expect(replacement.embedding?.length).toBe(4)
+  })
+
+  test('forget hides records from semantic recall', async () => {
+    const written = await mneme.remember({ kind: 'fact', body: 'coffee secret' })
+    expect((await mneme.recall('coffee')).length).toBeGreaterThan(0)
+    await mneme.forget(written.id)
+    expect(await mneme.recall('coffee')).toEqual([])
   })
 })
