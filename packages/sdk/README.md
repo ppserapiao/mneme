@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.4`. Local-only, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, and pluggable on-device semantic recall. Sync engine and hosted backends still ahead.
+> Status: `v0.0.6`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, and pluggable on-device semantic recall. Network transports + hosted backend land in v0.0.7+.
 
 ## Install
 
@@ -91,6 +91,35 @@ const matches = await mneme.recall('feedback style on pull requests')
 
 When an `embedder` is configured, every plaintext `remember()` persists an embedding and `recall()` ranks by cosine similarity. Without one, `recall()` falls back to SQLite FTS5 BM25.
 
+## Sync (multi-device, transport-agnostic)
+
+```ts
+import { Mneme } from '@mneme/sdk'
+
+const alice = new Mneme({ path: '/path/to/alice.sqlite', ownerId: 'pedro' })
+const bob = new Mneme({ path: '/path/to/bob.sqlite', ownerId: 'pedro' })
+
+await alice.remember({ kind: 'fact', body: 'london resident' })
+await bob.remember({ kind: 'preference', body: 'prefers concise reviews' })
+
+const result = await alice.sync(bob.asPeer())
+// → { pushed: 1, pulled: 1, merged: 0 }
+
+// alice and bob now have the same record set. Re-running sync is a no-op.
+```
+
+The engine is the load-bearing wall of the differentiation — it converges two stores' record sets and merges lifecycle envelopes deterministically:
+
+- **`supersededBy`** — both replacements are kept on disk; the pointer follows the replacement with the latest `createdAt`.
+- **`expiresAt`** — earliest wins (strictest expiry honoured).
+- **`forgetAt`** — earliest wins (strictest forget schedule honoured).
+
+The merge is commutative, associative, and idempotent. See [ADR 0008](../../decisions/0008-sync-engine-design.md) for the full design.
+
+`SyncPeer` is the transport-agnostic interface (`catalog`, `fetch`, `push`). v0.0.6 ships `InProcessSyncPeer` for tests / single-process demos. WebSocket and HTTP transports — including the hosted Mneme Cloud target — implement the same three methods in later versions, and the engine doesn't change.
+
+> Encrypted sync currently requires both peers to share the same master key. The **pairing ceremony** that establishes that shared key on a second device is the v0.0.7 work. v0.0.6 ships the engine.
+
 ## API
 
 ```ts
@@ -123,6 +152,7 @@ Verbs:
 - `forget(id, { hard? })` — soft-expire (default) or schedule hard delete
 - `supersede(id, replacement)` — atomic replace; old record is linked via `supersededBy`
 - `exportAll()` — async iterable over every record (including superseded / expired)
+- `sync(peer)` — bidirectional convergence with another store via a `SyncPeer` (ADR 0008)
 - `close()` — release the underlying SQLite handle
 
 ## Design notes

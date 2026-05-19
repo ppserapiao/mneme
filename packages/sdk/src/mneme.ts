@@ -10,6 +10,10 @@ import { MnemeError, OwnerIdSchema } from '@mneme/protocol'
 import { type KdfParams, toBase64Url } from './crypto'
 import type { Embedder } from './embedder/types'
 import { SqliteStore } from './store/sqlite'
+import type { SyncResult } from './sync/engine'
+import { syncOnce } from './sync/engine'
+import { InProcessSyncPeer } from './sync/in-process-peer'
+import type { SyncPeer } from './sync/peer'
 import type { Clock } from './util/clock'
 import { defaultStoragePath } from './util/path'
 
@@ -252,6 +256,45 @@ export class Mneme {
   /** Stream every memory for this owner, including superseded and forgotten records. */
   async *exportAll(): AsyncIterable<MemoryRecord> {
     yield* this.store.export({ ownerId: this.ownerId })
+  }
+
+  /**
+   * Synchronise this store's memory for the current owner with `peer`.
+   *
+   * Bidirectional: every record one side has and the other does not is
+   * exchanged; records present on both sides have their lifecycle envelopes
+   * merged per ADR 0008 §2 (latest-target wins for `supersededBy`, earliest
+   * wins for `expiresAt` and `forgetAt`).
+   *
+   * Sync is owner-scoped — only records under `this.ownerId` are touched.
+   * Re-running sync is idempotent: a second call against an already-
+   * converged peer returns `{ pushed: 0, pulled: 0, merged: 0 }`.
+   *
+   * For encrypted stores, both peers must share the same master key for the
+   * exchanged records to remain readable. v0.0.6 ships the engine; the
+   * pairing ceremony that establishes a shared master key lands in v0.0.7.
+   * Records exchanged between stores with different master keys remain
+   * readable as ciphertext but `get`/`recall` against them will fail
+   * `invalid_record` at signature verification time.
+   *
+   * @see {@link SyncPeer} for transport-agnostic peer contract.
+   * @see {@link InProcessSyncPeer} for the in-process peer used in tests.
+   */
+  async sync(peer: SyncPeer): Promise<SyncResult> {
+    return syncOnce(this.store, peer, this.ownerId)
+  }
+
+  /**
+   * Expose this `Mneme` as a `SyncPeer` for another `Mneme` running in the
+   * same process. The two-line two-device demo:
+   *
+   *   await alice.sync(bob.asPeer())
+   *
+   * For network transports, implement `SyncPeer` against your wire protocol
+   * and pass that to `sync()` instead. The engine is transport-agnostic.
+   */
+  asPeer(): SyncPeer {
+    return new InProcessSyncPeer(this.store)
   }
 
   /** Release the underlying database handle. Safe to call multiple times. */

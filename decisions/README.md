@@ -36,3 +36,4 @@ Briefly, with the reason each was rejected.
 | 0005  | [Encryption envelope (v0.0.3)](./0005-encryption-envelope-v0-3.md) | Accepted (superseded in part by ADR 0006) |
 | 0006  | [Recovery phrase and signed writes](./0006-recovery-phrase-and-signed-writes.md) | Accepted |
 | 0007  | [MCP server design](./0007-mcp-server-design.md) | Accepted |
+| 0008  | [Sync engine design](./0008-sync-engine-design.md) | Accepted |

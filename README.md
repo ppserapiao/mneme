@@ -70,7 +70,7 @@ const matches = await mneme.recall('feedback style on pull requests')
 // const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
 ```
 
-All three concerns — encryption, recovery, semantic recall — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
+All concerns — encryption, recovery, semantic recall, multi-device sync — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `mneme.sync(peer)` converges two stores via any transport implementing the `SyncPeer` interface. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
 
 ### Use it from Claude Code (MCP)
 
