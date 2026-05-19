@@ -38,9 +38,24 @@ import {
 } from '../crypto'
 import { cosineSimilarity } from '../embedder/cosine'
 import type { Embedder } from '../embedder/types'
+import { mergeLifecycle as mergeLifecyclePureFn } from '../sync/lifecycle-merge'
 import { type Clock, systemClock } from '../util/clock'
 import { ensureParentDir } from '../util/path'
 import { SCHEMA_V1 } from './schema'
+
+/**
+ * Lifecycle merge used by `upsertForSync`. Wrapped here so we can supply a
+ * SupersedeContext that resolves both ids against the local DB — the
+ * upsert is itself the moment we can authoritatively know each target's
+ * createdAt.
+ */
+function mergeLifecyclePure(local: MemoryLifecycle, remote: MemoryLifecycle): MemoryLifecycle {
+  // Without a DB lookup here we use the stable lexicographic tie-break for
+  // supersededBy; the engine has already done the canonical merge with a
+  // real context for records present on both sides. This call exists for
+  // defence in depth.
+  return mergeLifecyclePureFn(local, remote, { createdAtOf: () => undefined })
+}
 
 export type SqliteStoreOptions = {
   path: string
@@ -385,6 +400,129 @@ export class SqliteStore implements MnemeStore {
     }
     ranked.sort((a, b) => b.score - a.score)
     return ranked.slice(0, limit)
+  }
+
+  /**
+   * Enumerate every record for `ownerId` as a sync catalog — id, createdAt,
+   * and lifecycle envelope only. Body, embedding, metadata, and signature
+   * are intentionally excluded so a catalog fits comfortably in memory
+   * even for large stores.
+   *
+   * Includes ALL records, even forgotten / expired / superseded ones —
+   * sync's job is to converge state, not to filter by lifecycle.
+   */
+  async catalog(ownerId: OwnerId): Promise<{
+    entries: ReadonlyArray<{ id: MemoryId; createdAt: string; lifecycle: MemoryLifecycle }>
+  }> {
+    const rows = this.db
+      .query<{ id: string; created_at: string; lifecycle_json: string }, [string]>(
+        'SELECT id, created_at, lifecycle_json FROM memories WHERE owner_id = ?',
+      )
+      .all(ownerId)
+    const entries = rows.map((row) => ({
+      id: row.id as MemoryId,
+      createdAt: row.created_at,
+      lifecycle: JSON.parse(row.lifecycle_json) as MemoryLifecycle,
+    }))
+    return { entries }
+  }
+
+  /**
+   * Fetch full records by id for `ownerId`. Used by the sync engine to pull
+   * records the local store does not yet have. Returns the PERSISTED form
+   * (ciphertext for encrypted records) so sync exchanges work without
+   * requiring the receiving peer to hold the master key.
+   *
+   * Unknown ids are silently omitted.
+   */
+  async fetchById(
+    ownerId: OwnerId,
+    ids: ReadonlyArray<MemoryId>,
+  ): Promise<ReadonlyArray<MemoryRecord>> {
+    if (ids.length === 0) return []
+    const placeholders = ids.map(() => '?').join(',')
+    const rows = this.db
+      .query<MemoryRow, SQLQueryBindings[]>(
+        `SELECT * FROM memories WHERE owner_id = ? AND id IN (${placeholders})`,
+      )
+      .all(ownerId, ...ids)
+    // No decryption, no signature verification — these records are about to
+    // travel over the wire as-is. The receiving peer's later get()/recall()
+    // re-verifies signatures at the consumer boundary (ADR 0008 §5).
+    return rows.map(rowToRecord)
+  }
+
+  /**
+   * Upsert records received from a sync peer.
+   *
+   * - New records (id not present locally) are inserted as-is, preserving
+   *   their existing signature. No re-signing happens here.
+   * - Records already present locally get their lifecycle merged per
+   *   `mergeLifecycle` (ADR 0008 §2). The body, metadata, and signature of
+   *   an existing record are NEVER overwritten — bodies are immutable.
+   *
+   * Wrapped in a transaction so a batch upsert is all-or-nothing.
+   */
+  async upsertForSync(ownerId: OwnerId, records: ReadonlyArray<MemoryRecord>): Promise<void> {
+    if (records.length === 0) return
+    const tx = this.db.transaction(() => {
+      for (const record of records) {
+        if (record.ownerId !== ownerId) {
+          throw new MnemeError(
+            'invalid_record',
+            `record ${record.id} ownerId mismatch (expected ${ownerId})`,
+          )
+        }
+        const existing = this.db
+          .query<{ lifecycle_json: string }, [string, string]>(
+            'SELECT lifecycle_json FROM memories WHERE owner_id = ? AND id = ?',
+          )
+          .get(ownerId, record.id)
+        if (existing === null) {
+          this.insertRecord(record)
+          continue
+        }
+        // Existing record: merge lifecycle only. Body/signature stay as-is
+        // because they are part of the immutable record we already have.
+        const localLifecycle = JSON.parse(existing.lifecycle_json) as MemoryLifecycle
+        const merged = mergeLifecyclePure(localLifecycle, record.lifecycle)
+        this.applyLifecycleRowUpdate(ownerId, record.id, merged)
+      }
+    })
+    tx()
+  }
+
+  /**
+   * Apply a precomputed lifecycle envelope to an existing record. Used by
+   * the sync engine when it has decided on a merged lifecycle and wants to
+   * persist it locally without re-fetching the record body.
+   */
+  async applyLifecycleUpdate(
+    ownerId: OwnerId,
+    id: MemoryId,
+    lifecycle: MemoryLifecycle,
+  ): Promise<void> {
+    this.applyLifecycleRowUpdate(ownerId, id, lifecycle)
+  }
+
+  private applyLifecycleRowUpdate(ownerId: string, id: string, lifecycle: MemoryLifecycle): void {
+    this.db
+      .prepare(
+        `UPDATE memories
+            SET lifecycle_json = ?,
+                superseded_by  = ?,
+                expires_at     = ?,
+                forget_at      = ?
+          WHERE owner_id = ? AND id = ?`,
+      )
+      .run(
+        JSON.stringify(lifecycle),
+        lifecycle.supersededBy ?? null,
+        lifecycle.expiresAt ?? null,
+        lifecycle.forgetAt ?? null,
+        ownerId,
+        id,
+      )
   }
 
   async forget(input: ForgetInput): Promise<void> {
