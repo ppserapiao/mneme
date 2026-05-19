@@ -31,3 +31,4 @@ Briefly, with the reason each was rejected.
 | ----- | ----------------------------------------------------- | -------- |
 | 0001  | [Monorepo with Bun workspaces](./0001-monorepo-bun-workspaces.md) | Accepted |
 | 0002  | [Local-first SDK before hosted API](./0002-local-first-sdk-before-hosted-api.md) | Accepted |
+| 0003  | [Systematic operating procedure](./0003-systematic-operating-procedure.md) | Accepted |
