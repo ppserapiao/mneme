@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.3`. Local-only, but now with **opt-in AES-256-GCM encryption at rest** and pluggable on-device semantic recall. Sync engine and hosted backends still ahead.
+> Status: `v0.0.4`. Local-only, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, and pluggable on-device semantic recall. Sync engine and hosted backends still ahead.
 
 ## Install
 
@@ -40,25 +40,35 @@ Pass `path: ':memory:'` for an ephemeral store (recommended in tests).
 
 ## Encryption at rest (opt-in)
 
-Pass a `passphrase` through the async `Mneme.open()` factory. Bodies are sealed with AES-256-GCM, per-record data keys are wrapped under a master key derived from the passphrase via Argon2id, and the AAD binds each record's id.
+Encryption uses **AES-256-GCM** with per-record data keys wrapped under a **random master key**. The master key is itself wrapped under **two** independent keys: one derived from your passphrase via Argon2id, one derived from a 24-word BIP-39 **recovery phrase**. Either unlocks the store; either unlocks the SAME records.
 
 ```ts
 import { Mneme } from '@mneme/sdk'
 
-const mneme = await Mneme.open({ passphrase: 'correct horse battery staple' })
+// First time — generate keys and the recovery phrase
+const { mneme, recoveryPhrase } = await Mneme.initialize({
+  passphrase: 'correct horse battery staple',
+})
+console.log('SAVE THIS:', recoveryPhrase) // 24 words, shown once
 
 await mneme.remember({ kind: 'fact', body: 'london resident' })
-const back = await mneme.get(/* id */)
-console.log(back?.body) // { mode: 'plaintext', data: 'london resident' }
-
-// On disk, the body column is ciphertext only. The plaintext above is the
-// SDK decrypting transparently before returning to the caller.
+console.log(mneme.publicKey) // base64url Ed25519 public key
 ```
 
-- The synchronous `new Mneme()` constructor throws if you pass a passphrase — encryption requires the async factory by design.
-- Wrong passphrase on reopen raises `MnemeError` with code `unauthorized` before any record is touched.
-- **v0.0.3 has no recovery phrase yet.** Losing your passphrase loses the store. BIP-39 recovery + signed writes land in v0.0.4. See [ADR 0005](../../decisions/0005-encryption-envelope-v0-3.md).
-- Lexical BM25 recall is silently empty under encryption (FTS5 cannot index ciphertext). Combine with `@mneme/embedder-local` for semantic recall over encrypted memory — embeddings are computed pre-encryption.
+```ts
+// Subsequent opens — passphrase
+const mneme = await Mneme.open({ passphrase: 'correct horse battery staple' })
+
+// Or if the passphrase is forgotten — recovery phrase
+const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
+```
+
+- `new Mneme()` (sync) refuses any encryption option — encrypted mode requires `Mneme.initialize()` or `Mneme.open()`.
+- Wrong passphrase / invalid recovery phrase raises `MnemeError` with code `unauthorized` before any record is touched.
+- `Mneme.publicKey` is the **stable Ed25519 public key** for the store — same value whether you unlocked with passphrase or recovery phrase. Use it to externally verify the `signature` on any record this store has written.
+- Lexical BM25 recall is **disabled under encryption** (FTS5 cannot index ciphertext) and raises `MnemeError({ code: 'unsupported_payload_mode' })`. Combine with `@mneme/embedder-local` for semantic recall over encrypted memory — embeddings are computed pre-encryption.
+
+See [ADR 0006](../../decisions/0006-recovery-phrase-and-signed-writes.md) for the dual-wrapping design and Ed25519 derivation; [ADR 0005](../../decisions/0005-encryption-envelope-v0-3.md) for the underlying envelope.
 
 ## Semantic recall (opt-in)
 
@@ -91,10 +101,17 @@ new Mneme({
   embedder?: Embedder   // default: undefined — falls back to lexical BM25 search
 })
 
-await Mneme.open({
-  // …same options as above, plus:
-  passphrase?: string   // when set, encryption-at-rest is enabled
+// Fresh encrypted store — returns recovery phrase once
+const { mneme, recoveryPhrase } = await Mneme.initialize({
+  // …same MnemeOptions as above, plus:
+  passphrase: string    // REQUIRED for initialize
   kdfParams?: KdfParams // optional Argon2id tuning; defaults to OWASP interactive
+})
+
+// Existing store (plaintext or encrypted)
+await Mneme.open({
+  passphrase?: string       // when set, opens an existing encrypted store
+  recoveryPhrase?: string   // alternative to passphrase (mutually exclusive)
 })
 ```
 

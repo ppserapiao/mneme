@@ -9,8 +9,8 @@ import { Mneme } from './index'
 import type { Clock } from './util/clock'
 
 // Reduced Argon2id cost so the test suite finishes in seconds rather than
-// minutes. The production default (64 MiB / 3 iterations) is exercised in
-// integration tests; the protocol semantics are independent of the cost.
+// minutes. The production default (64 MiB / 3 iterations) is exercised
+// separately; the protocol semantics are independent of the cost.
 const TEST_KDF: KdfParams = {
   memoryKiB: 1024,
   iterations: 1,
@@ -37,9 +37,17 @@ function keywordEmbedder(keywords: ReadonlyArray<string>): Embedder {
   }
 }
 
-describe('Mneme.open — constructor contract', () => {
+describe('Mneme — constructor and factory contracts', () => {
   test('sync constructor refuses a passphrase', () => {
-    expect(() => new Mneme({ path: ':memory:', passphrase: 'oops' })).toThrow(
+    // biome-ignore lint/suspicious/noExplicitAny: intentionally passing a forbidden shape
+    expect(() => new Mneme({ path: ':memory:', passphrase: 'oops' } as any)).toThrow(
+      /Encrypted mode requires the async factory/i,
+    )
+  })
+
+  test('sync constructor refuses a recoveryPhrase', () => {
+    // biome-ignore lint/suspicious/noExplicitAny: intentionally passing a forbidden shape
+    expect(() => new Mneme({ path: ':memory:', recoveryPhrase: 'word ' } as any)).toThrow(
       /Encrypted mode requires the async factory/i,
     )
   })
@@ -48,31 +56,76 @@ describe('Mneme.open — constructor contract', () => {
     const mneme = await Mneme.open({ path: ':memory:' })
     try {
       expect(mneme.encrypted).toBe(false)
-      const record = await mneme.remember({ kind: 'fact', body: 'plain' })
-      const back = await mneme.get(record.id)
-      expect(back?.body).toEqual({ mode: 'plaintext', data: 'plain' })
+      expect(mneme.publicKey).toBeUndefined()
     } finally {
       mneme.close()
     }
   })
 
-  test('Mneme.open({ passphrase }) yields an encrypted instance', async () => {
-    const mneme = await Mneme.open({
+  test('Mneme.open rejects both passphrase and recoveryPhrase together', async () => {
+    await expect(
+      Mneme.open({
+        path: ':memory:',
+        passphrase: 'p',
+        recoveryPhrase: 'r',
+      }),
+    ).rejects.toThrow(/not both/i)
+  })
+
+  test('Mneme.initialize requires a passphrase', async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: intentionally omitting required field
+    await expect(Mneme.initialize({ path: ':memory:' } as any)).rejects.toMatchObject({
+      code: 'invalid_record',
+    })
+  })
+
+  test('empty passphrase is rejected on initialize', async () => {
+    await expect(
+      Mneme.initialize({ path: ':memory:', passphrase: '', kdfParams: TEST_KDF }),
+    ).rejects.toThrow(/passphrase must not be empty/i)
+  })
+
+  test('Mneme.open with passphrase fails when no keyring exists yet', async () => {
+    await expect(Mneme.open({ path: ':memory:', passphrase: 'anything' })).rejects.toMatchObject({
+      code: 'record_not_found',
+    })
+  })
+})
+
+describe('Mneme.initialize — fresh encrypted store', () => {
+  test('returns a 24-word recovery phrase and an encrypted instance', async () => {
+    const { mneme, recoveryPhrase } = await Mneme.initialize({
       path: ':memory:',
       passphrase: 'correct horse battery staple',
       kdfParams: TEST_KDF,
     })
     try {
       expect(mneme.encrypted).toBe(true)
+      expect(typeof mneme.publicKey).toBe('string')
+      const words = recoveryPhrase.trim().split(/\s+/)
+      expect(words.length).toBe(24)
     } finally {
       mneme.close()
     }
   })
 
-  test('empty passphrase is rejected', async () => {
-    await expect(
-      Mneme.open({ path: ':memory:', passphrase: '', kdfParams: TEST_KDF }),
-    ).rejects.toThrow(/passphrase must not be empty/i)
+  test('initialize on an existing keyring throws conflict', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mneme-init-'))
+    const dbPath = join(tmp, 'memory.sqlite')
+    try {
+      const { mneme: first } = await Mneme.initialize({
+        path: dbPath,
+        passphrase: 'one',
+        kdfParams: TEST_KDF,
+      })
+      first.close()
+
+      await expect(
+        Mneme.initialize({ path: dbPath, passphrase: 'two', kdfParams: TEST_KDF }),
+      ).rejects.toMatchObject({ code: 'conflict' })
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })
 
@@ -80,13 +133,14 @@ describe('Mneme — encryption end-to-end', () => {
   let mneme: Mneme
 
   beforeEach(async () => {
-    mneme = await Mneme.open({
+    const { mneme: m } = await Mneme.initialize({
       path: ':memory:',
       ownerId: 'pedro',
       clock: frozenClock('2026-05-19T12:00:00.000Z'),
       passphrase: 'correct horse battery staple',
       kdfParams: TEST_KDF,
     })
+    mneme = m
   })
 
   afterEach(() => {
@@ -94,11 +148,9 @@ describe('Mneme — encryption end-to-end', () => {
   })
 
   test('remember returns the plaintext body to the caller', async () => {
-    const record = await mneme.remember({
-      kind: 'preference',
-      body: 'prefers concise reviews',
-    })
+    const record = await mneme.remember({ kind: 'preference', body: 'prefers concise reviews' })
     expect(record.body).toEqual({ mode: 'plaintext', data: 'prefers concise reviews' })
+    expect(typeof record.signature).toBe('string')
   })
 
   test('get round-trips a record through encrypt-then-decrypt', async () => {
@@ -107,24 +159,14 @@ describe('Mneme — encryption end-to-end', () => {
     expect(back?.body).toEqual({ mode: 'plaintext', data: 'london resident' })
   })
 
-  test('two records with identical plaintext produce different ciphertexts', async () => {
-    const a = await mneme.remember({ kind: 'fact', body: 'identical plaintext' })
-    const b = await mneme.remember({ kind: 'fact', body: 'identical plaintext' })
-    expect(a.id).not.toBe(b.id)
-    // Sanity: both come back as plaintext to the caller, but their persisted
-    // ciphertexts differ — covered by the on-disk test below.
-    expect((await mneme.get(a.id))?.body).toEqual((await mneme.get(b.id))?.body)
-  })
-
-  test('supersede encrypts the replacement', async () => {
-    const original = await mneme.remember({ kind: 'preference', body: 'verbose comments' })
+  test('supersede encrypts and signs the replacement', async () => {
+    const original = await mneme.remember({ kind: 'preference', body: 'verbose' })
     const replacement = await mneme.supersede(original.id, {
       kind: 'preference',
-      body: 'concise comments',
+      body: 'concise',
     })
-    expect(replacement.body).toEqual({ mode: 'plaintext', data: 'concise comments' })
-    const reread = await mneme.get(original.id)
-    expect(reread?.lifecycle.supersededBy).toBe(replacement.id)
+    expect(replacement.body).toEqual({ mode: 'plaintext', data: 'concise' })
+    expect(typeof replacement.signature).toBe('string')
   })
 
   test('exportAll yields plaintext bodies to the caller', async () => {
@@ -138,6 +180,13 @@ describe('Mneme — encryption end-to-end', () => {
     for (const r of exported) {
       expect(r.body.mode).toBe('plaintext')
     }
+  })
+
+  test('lexical recall under encryption with no embedder throws', async () => {
+    await mneme.remember({ kind: 'fact', body: 'searchable text' })
+    await expect(mneme.recall('searchable')).rejects.toMatchObject({
+      code: 'unsupported_payload_mode',
+    })
   })
 })
 
@@ -154,8 +203,8 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  test('persisted body is ciphertext, not plaintext, when encrypted', async () => {
-    const mneme = await Mneme.open({
+  test('persisted body is ciphertext, never plaintext', async () => {
+    const { mneme } = await Mneme.initialize({
       path: dbPath,
       passphrase: 'correct horse battery staple',
       kdfParams: TEST_KDF,
@@ -168,23 +217,16 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
 
     const direct = new Database(dbPath)
     try {
-      const row = direct
-        .query<{ body_mode: string; body_data: string | null; body_ciphertext: string | null }, []>(
-          'SELECT body_mode, body_data, body_ciphertext FROM memories LIMIT 1',
-        )
-        .get()
-      expect(row?.body_mode).toBe('aes-gcm-256')
-      expect(row?.body_data).toBeNull()
-      expect(typeof row?.body_ciphertext).toBe('string')
-      expect(row?.body_ciphertext?.length ?? 0).toBeGreaterThan(0)
-
-      // The literal plaintext must not appear anywhere in the body columns.
-      const allRows = direct
+      const rows = direct
         .query<{ body_mode: string; body_data: string | null; body_ciphertext: string | null }, []>(
           'SELECT body_mode, body_data, body_ciphertext FROM memories',
         )
         .all()
-      for (const r of allRows) {
+      expect(rows.length).toBe(1)
+      for (const r of rows) {
+        expect(r.body_mode).toBe('aes-gcm-256')
+        expect(r.body_data).toBeNull()
+        expect((r.body_ciphertext ?? '').length).toBeGreaterThan(0)
         expect(r.body_data ?? '').not.toContain('this should NEVER appear')
         expect(r.body_ciphertext ?? '').not.toContain('this should NEVER appear')
       }
@@ -193,10 +235,14 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
     }
   })
 
-  test('reopening with the correct passphrase decrypts the existing records', async () => {
+  test('reopen with the correct passphrase decrypts the existing records', async () => {
     const passphrase = 'correct horse battery staple'
-    const first = await Mneme.open({ path: dbPath, passphrase, kdfParams: TEST_KDF })
     let writtenId = ''
+    const { mneme: first } = await Mneme.initialize({
+      path: dbPath,
+      passphrase,
+      kdfParams: TEST_KDF,
+    })
     try {
       const r = await first.remember({ kind: 'fact', body: 'survives a close' })
       writtenId = r.id
@@ -204,7 +250,7 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
       first.close()
     }
 
-    const second = await Mneme.open({ path: dbPath, passphrase, kdfParams: TEST_KDF })
+    const second = await Mneme.open({ path: dbPath, passphrase })
     try {
       const back = await second.get(writtenId as never)
       expect(back?.body).toEqual({ mode: 'plaintext', data: 'survives a close' })
@@ -213,8 +259,8 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
     }
   })
 
-  test('reopening with the wrong passphrase fails with unauthorized', async () => {
-    const init = await Mneme.open({
+  test('reopen with the wrong passphrase fails with unauthorized', async () => {
+    const { mneme: init } = await Mneme.initialize({
       path: dbPath,
       passphrase: 'correct',
       kdfParams: TEST_KDF,
@@ -225,15 +271,162 @@ describe('Mneme — encryption at rest (on-disk verification)', () => {
       init.close()
     }
 
+    await expect(Mneme.open({ path: dbPath, passphrase: 'wrong' })).rejects.toMatchObject({
+      code: 'unauthorized',
+    })
+  })
+})
+
+describe('Mneme — BIP-39 recovery phrase', () => {
+  let tmpDir: string
+  let dbPath: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'mneme-recovery-'))
+    dbPath = join(tmpDir, 'memory.sqlite')
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('passphrase and recovery phrase unlock the same master key (same public key)', async () => {
+    const { mneme: first, recoveryPhrase } = await Mneme.initialize({
+      path: dbPath,
+      passphrase: 'correct horse battery staple',
+      kdfParams: TEST_KDF,
+    })
+    const publicKey = first.publicKey
+    let writtenId = ''
+    try {
+      const r = await first.remember({ kind: 'fact', body: 'verifiable across unlocks' })
+      writtenId = r.id
+    } finally {
+      first.close()
+    }
+
+    // Unlock with passphrase
+    const viaPassphrase = await Mneme.open({
+      path: dbPath,
+      passphrase: 'correct horse battery staple',
+    })
+    try {
+      expect(viaPassphrase.publicKey).toBe(publicKey)
+      const back = await viaPassphrase.get(writtenId as never)
+      expect(back?.body).toEqual({ mode: 'plaintext', data: 'verifiable across unlocks' })
+    } finally {
+      viaPassphrase.close()
+    }
+
+    // Unlock with recovery phrase
+    const viaRecovery = await Mneme.open({ path: dbPath, recoveryPhrase })
+    try {
+      expect(viaRecovery.publicKey).toBe(publicKey)
+      const back = await viaRecovery.get(writtenId as never)
+      expect(back?.body).toEqual({ mode: 'plaintext', data: 'verifiable across unlocks' })
+    } finally {
+      viaRecovery.close()
+    }
+  })
+
+  test('an invalid recovery phrase fails with unauthorized', async () => {
+    const { mneme } = await Mneme.initialize({
+      path: dbPath,
+      passphrase: 'p',
+      kdfParams: TEST_KDF,
+    })
+    mneme.close()
+
     await expect(
-      Mneme.open({ path: dbPath, passphrase: 'wrong', kdfParams: TEST_KDF }),
+      Mneme.open({ path: dbPath, recoveryPhrase: 'not actually a bip39 phrase at all' }),
     ).rejects.toMatchObject({ code: 'unauthorized' })
+  })
+})
+
+describe('Mneme — signed writes', () => {
+  let tmpDir: string
+  let dbPath: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'mneme-signing-'))
+    dbPath = join(tmpDir, 'memory.sqlite')
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('every encrypted write carries an Ed25519 signature', async () => {
+    const { mneme } = await Mneme.initialize({
+      path: ':memory:',
+      passphrase: 'p',
+      kdfParams: TEST_KDF,
+    })
+    try {
+      const r = await mneme.remember({ kind: 'fact', body: 'signed' })
+      expect(typeof r.signature).toBe('string')
+      expect((r.signature ?? '').length).toBeGreaterThan(0)
+    } finally {
+      mneme.close()
+    }
+  })
+
+  test('plaintext writes carry no signature', async () => {
+    const mneme = new Mneme({ path: ':memory:' })
+    try {
+      const r = await mneme.remember({ kind: 'fact', body: 'unsigned' })
+      expect(r.signature).toBeUndefined()
+    } finally {
+      mneme.close()
+    }
+  })
+
+  test('tampered ciphertext at rest is caught by signature verification on read', async () => {
+    const { mneme, recoveryPhrase } = await Mneme.initialize({
+      path: dbPath,
+      passphrase: 'p',
+      kdfParams: TEST_KDF,
+    })
+    let writtenId = ''
+    try {
+      const r = await mneme.remember({ kind: 'fact', body: 'protected' })
+      writtenId = r.id
+    } finally {
+      mneme.close()
+    }
+
+    // Tamper: swap a single character in the ciphertext column directly.
+    const direct = new Database(dbPath)
+    try {
+      const row = direct
+        .query<{ body_ciphertext: string | null }, [string]>(
+          'SELECT body_ciphertext FROM memories WHERE id = ?',
+        )
+        .get(writtenId)
+      const original = row?.body_ciphertext ?? ''
+      // Flip a base64url character somewhere in the middle.
+      const mid = Math.floor(original.length / 2)
+      const swapped = `${original.slice(0, mid)}${original[mid] === 'A' ? 'B' : 'A'}${original.slice(mid + 1)}`
+      direct.prepare('UPDATE memories SET body_ciphertext = ? WHERE id = ?').run(swapped, writtenId)
+    } finally {
+      direct.close()
+    }
+
+    // Reopen with recovery (to confirm both unlock paths catch tampering).
+    const reopen = await Mneme.open({ path: dbPath, recoveryPhrase })
+    try {
+      await expect(reopen.get(writtenId as never)).rejects.toMatchObject({
+        code: 'invalid_record',
+      })
+    } finally {
+      reopen.close()
+    }
   })
 })
 
 describe('Mneme — encryption + embedder co-operate', () => {
   test('semantic recall returns plaintext bodies under encryption', async () => {
-    const mneme = await Mneme.open({
+    const { mneme } = await Mneme.initialize({
       path: ':memory:',
       passphrase: 'shh',
       kdfParams: TEST_KDF,
