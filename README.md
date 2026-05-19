@@ -48,23 +48,28 @@ The boundary between `packages/protocol` and everything else is the boundary we 
 import { Mneme } from '@mneme/sdk'
 import { LocalEmbedder } from '@mneme/embedder-local'
 
-const mneme = await Mneme.open({
-  passphrase: 'correct horse battery staple', // optional — encrypts at rest
-  embedder: new LocalEmbedder(),              // optional — enables semantic recall
+// First time — get the recovery phrase, store it somewhere safe
+const { mneme, recoveryPhrase } = await Mneme.initialize({
+  passphrase: 'correct horse battery staple',
+  embedder: new LocalEmbedder(),
 })
+console.log('SAVE THIS:', recoveryPhrase) // 24 words, shown once
 
 await mneme.remember({
   kind: 'preference',
   body: 'Prefers concise code review comments',
 })
 
-// Body is sealed with AES-256-GCM on disk; "feedback style" never appears in
-// any column. Semantic recall finds it anyway because embeddings are computed
-// pre-encryption.
+// Body is sealed with AES-256-GCM on disk and signed with Ed25519.
+// Semantic recall finds it via embeddings computed pre-encryption.
 const matches = await mneme.recall('feedback style on pull requests')
+
+// Subsequent opens — passphrase or recovery phrase, both unlock the same store
+// const mneme = await Mneme.open({ passphrase: 'correct horse battery staple' })
+// const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
 ```
 
-Both options are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.open({ passphrase })` requires the async factory and persists ciphertext at rest under Argon2id-derived master keys. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
+All three concerns — encryption, recovery, semantic recall — are independent and opt-in. `new Mneme()` (sync) still works for plaintext local mode. `Mneme.initialize()` creates a new encrypted store and returns the BIP-39 recovery phrase once. `Mneme.open()` unlocks an existing store with either the passphrase or the recovery phrase. `@mneme/embedder-local` is an optional companion package for on-device semantic search.
 
 ## For contributors
 

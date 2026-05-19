@@ -25,11 +25,16 @@ import {
   type KdfParams,
   MasterKey,
   type MasterKeyMeta,
+  type SigningKeyPair,
   decrypt,
+  deriveSigningKeyPair,
   encrypt,
   fromBase64Url,
   generateDataKey,
+  recordSigningPayload,
+  sign,
   toBase64Url,
+  verify,
 } from '../crypto'
 import { cosineSimilarity } from '../embedder/cosine'
 import type { Embedder } from '../embedder/types'
@@ -68,10 +73,13 @@ type MemoryRow = {
   forget_at: string | null
 }
 
-type CryptoMetaRow = {
-  salt: Uint8Array
-  verifier_ciphertext: Uint8Array
-  verifier_nonce: Uint8Array
+type KeyringRow = {
+  schema_version: number
+  passphrase_salt: Uint8Array
+  wrapped_by_passphrase_ciphertext: Uint8Array
+  wrapped_by_passphrase_nonce: Uint8Array
+  wrapped_by_recovery_ciphertext: Uint8Array
+  wrapped_by_recovery_nonce: Uint8Array
   kdf_algorithm: string
   kdf_memory_kib: number
   kdf_iterations: number
@@ -84,6 +92,7 @@ export class SqliteStore implements MnemeStore {
   private readonly clock: Clock
   private readonly embedder: Embedder | undefined
   private masterKey: MasterKey | undefined
+  private signingKeys: SigningKeyPair | undefined
 
   constructor(options: SqliteStoreOptions) {
     ensureParentDir(options.path)
@@ -97,80 +106,60 @@ export class SqliteStore implements MnemeStore {
   }
 
   /**
-   * Initialise — or re-derive — the master key for this store.
+   * Initialise a NEW encrypted keyring for this store. Generates a random
+   * master key, wraps it under both a passphrase-derived key and a fresh
+   * BIP-39 recovery phrase, and persists the wrappings.
    *
-   * If `crypto_metadata` has no row yet, this is a fresh encrypted store:
-   * a salt + verifier are generated and persisted using `kdfParams`.
-   *
-   * If a row exists, the master key is re-derived from `passphrase` against
-   * the stored salt and verified against the stored verifier. A wrong
-   * passphrase throws before any record is touched.
-   *
-   * Must be called before any `write`/`read`/`search` that should be
-   * encrypted. Idempotent — calling again with the same passphrase succeeds.
+   * Throws if a keyring already exists (use `openWithPassphrase` /
+   * `openWithRecoveryPhrase` instead). The recovery phrase is returned ONCE
+   * and never persisted by the SDK — the caller must show it to the user.
    */
-  async openMasterKey(
+  async initialiseKeyring(
     passphrase: string,
     kdfParams: KdfParams = DEFAULT_KDF_PARAMS,
-  ): Promise<void> {
-    const existing = this.db
-      .query<CryptoMetaRow, []>(
-        `SELECT salt, verifier_ciphertext, verifier_nonce,
-                kdf_algorithm, kdf_memory_kib, kdf_iterations,
-                kdf_parallelism, kdf_output_length
-           FROM crypto_metadata WHERE id = 1`,
+  ): Promise<{ recoveryPhrase: string; publicKey: Uint8Array }> {
+    if (this.loadKeyringRow() !== null) {
+      throw new MnemeError(
+        'conflict',
+        'keyring already exists; use openWithPassphrase or openWithRecoveryPhrase',
       )
-      .get()
-
-    if (existing) {
-      if (existing.kdf_algorithm !== 'argon2id') {
-        throw new MnemeError(
-          'storage_failure',
-          `unsupported KDF algorithm: ${existing.kdf_algorithm}`,
-        )
-      }
-      const meta: MasterKeyMeta = {
-        salt: new Uint8Array(existing.salt),
-        verifier: {
-          ciphertext: new Uint8Array(existing.verifier_ciphertext),
-          nonce: new Uint8Array(existing.verifier_nonce),
-        },
-        kdfParams: {
-          memoryKiB: existing.kdf_memory_kib,
-          iterations: existing.kdf_iterations,
-          parallelism: existing.kdf_parallelism,
-          outputLength: existing.kdf_output_length,
-        },
-      }
-      try {
-        this.masterKey = await MasterKey.open(passphrase, meta)
-      } catch {
-        throw new MnemeError('unauthorized', 'wrong passphrase for encrypted store')
-      }
-      return
     }
+    const { masterKey, meta, recoveryPhrase } = await MasterKey.initialise(passphrase, kdfParams)
+    this.persistKeyring(meta)
+    this.adoptMasterKey(masterKey)
+    return { recoveryPhrase, publicKey: (this.signingKeys as SigningKeyPair).publicKey }
+  }
 
-    const { masterKey, meta } = await MasterKey.initialise(passphrase, kdfParams)
-    this.db
-      .prepare(
-        `INSERT INTO crypto_metadata (
-           id, salt, verifier_ciphertext, verifier_nonce,
-           kdf_algorithm, kdf_memory_kib, kdf_iterations,
-           kdf_parallelism, kdf_output_length, created_at
-         ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        meta.salt,
-        meta.verifier.ciphertext,
-        meta.verifier.nonce,
-        'argon2id',
-        meta.kdfParams.memoryKiB,
-        meta.kdfParams.iterations,
-        meta.kdfParams.parallelism,
-        meta.kdfParams.outputLength,
-        this.clock.now().toISOString(),
-      )
-    this.masterKey = masterKey
+  /**
+   * Unlock an existing encrypted keyring with the user's passphrase.
+   * Throws `record_not_found` if no keyring exists (suggest initialiseKeyring),
+   * `unauthorized` on wrong passphrase.
+   */
+  async openWithPassphrase(passphrase: string): Promise<{ publicKey: Uint8Array }> {
+    const meta = this.requireKeyringMeta()
+    try {
+      const masterKey = await MasterKey.openWithPassphrase(passphrase, meta)
+      this.adoptMasterKey(masterKey)
+      return { publicKey: (this.signingKeys as SigningKeyPair).publicKey }
+    } catch {
+      throw new MnemeError('unauthorized', 'wrong passphrase for encrypted store')
+    }
+  }
+
+  /**
+   * Unlock an existing encrypted keyring with the user's BIP-39 recovery
+   * phrase. Throws `record_not_found` if no keyring exists, `unauthorized`
+   * on invalid or mismatched phrase.
+   */
+  async openWithRecoveryPhrase(phrase: string): Promise<{ publicKey: Uint8Array }> {
+    const meta = this.requireKeyringMeta()
+    try {
+      const masterKey = await MasterKey.openWithRecoveryPhrase(phrase, meta)
+      this.adoptMasterKey(masterKey)
+      return { publicKey: (this.signingKeys as SigningKeyPair).publicKey }
+    } catch {
+      throw new MnemeError('unauthorized', 'invalid or mismatched recovery phrase')
+    }
   }
 
   /** Whether encryption is active on this store. */
@@ -178,11 +167,107 @@ export class SqliteStore implements MnemeStore {
     return this.masterKey !== undefined
   }
 
+  /** Whether a keyring has already been initialised for this store. */
+  hasKeyring(): boolean {
+    return this.loadKeyringRow() !== null
+  }
+
+  /** Ed25519 public key for this store. Available only after the keyring is unlocked. */
+  get publicKey(): Uint8Array | undefined {
+    return this.signingKeys?.publicKey
+  }
+
+  private adoptMasterKey(masterKey: MasterKey): void {
+    this.masterKey = masterKey
+    this.signingKeys = deriveSigningKeyPair(masterKey.bytes())
+  }
+
+  private loadKeyringRow(): KeyringRow | null {
+    const row = this.db
+      .query<KeyringRow, []>(
+        `SELECT schema_version,
+                passphrase_salt,
+                wrapped_by_passphrase_ciphertext, wrapped_by_passphrase_nonce,
+                wrapped_by_recovery_ciphertext, wrapped_by_recovery_nonce,
+                kdf_algorithm, kdf_memory_kib, kdf_iterations,
+                kdf_parallelism, kdf_output_length
+           FROM mneme_keyring WHERE id = 1`,
+      )
+      .get()
+    return row ?? null
+  }
+
+  private requireKeyringMeta(): MasterKeyMeta {
+    const row = this.loadKeyringRow()
+    if (row === null) {
+      throw new MnemeError(
+        'record_not_found',
+        'no keyring; call initialiseKeyring before opening with passphrase or recovery phrase',
+      )
+    }
+    if (row.schema_version !== 2) {
+      throw new MnemeError(
+        'protocol_version_mismatch',
+        `keyring schema_version ${row.schema_version} is not supported by this SDK`,
+      )
+    }
+    if (row.kdf_algorithm !== 'argon2id') {
+      throw new MnemeError('storage_failure', `unsupported KDF algorithm: ${row.kdf_algorithm}`)
+    }
+    return {
+      schemaVersion: 2,
+      passphraseSalt: new Uint8Array(row.passphrase_salt),
+      wrappedByPassphrase: {
+        ciphertext: new Uint8Array(row.wrapped_by_passphrase_ciphertext),
+        nonce: new Uint8Array(row.wrapped_by_passphrase_nonce),
+      },
+      wrappedByRecovery: {
+        ciphertext: new Uint8Array(row.wrapped_by_recovery_ciphertext),
+        nonce: new Uint8Array(row.wrapped_by_recovery_nonce),
+      },
+      kdfParams: {
+        memoryKiB: row.kdf_memory_kib,
+        iterations: row.kdf_iterations,
+        parallelism: row.kdf_parallelism,
+        outputLength: row.kdf_output_length,
+      },
+    }
+  }
+
+  private persistKeyring(meta: MasterKeyMeta): void {
+    this.db
+      .prepare(
+        `INSERT INTO mneme_keyring (
+           id, schema_version, passphrase_salt,
+           wrapped_by_passphrase_ciphertext, wrapped_by_passphrase_nonce,
+           wrapped_by_recovery_ciphertext, wrapped_by_recovery_nonce,
+           kdf_algorithm, kdf_memory_kib, kdf_iterations,
+           kdf_parallelism, kdf_output_length, created_at
+         ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        meta.schemaVersion,
+        meta.passphraseSalt,
+        meta.wrappedByPassphrase.ciphertext,
+        meta.wrappedByPassphrase.nonce,
+        meta.wrappedByRecovery.ciphertext,
+        meta.wrappedByRecovery.nonce,
+        'argon2id',
+        meta.kdfParams.memoryKiB,
+        meta.kdfParams.iterations,
+        meta.kdfParams.parallelism,
+        meta.kdfParams.outputLength,
+        this.clock.now().toISOString(),
+      )
+  }
+
   async write(input: WriteInput): Promise<MemoryRecord> {
     const now = this.clock.now()
     const id = MemoryIdSchema.parse(ulid(now.getTime()))
     const embedding = await this.embedIfPossible(input.body)
     const persistedBody = await this.encryptForPersistence(input.body, id)
+    const createdAt = now.toISOString()
+    const signature = this.signPersisted(input.ownerId, id, createdAt, persistedBody)
     const persistedRecord = MemoryRecordSchema.parse({
       id,
       ownerId: input.ownerId,
@@ -191,9 +276,10 @@ export class SqliteStore implements MnemeStore {
       metadata: buildMetadata(input, now),
       lifecycle: {},
       ...(embedding ? { embedding } : {}),
+      ...(signature ? { signature } : {}),
     })
     this.insertRecord(persistedRecord)
-    return this.decryptForReturn(persistedRecord)
+    return this.decryptForReturn(this.verifyPersisted(persistedRecord))
   }
 
   async read(ownerId: OwnerId, id: MemoryId): Promise<MemoryRecord | null> {
@@ -203,12 +289,18 @@ export class SqliteStore implements MnemeStore {
       )
       .get(ownerId, id)
     if (!row) return null
-    return this.decryptForReturn(rowToRecord(row))
+    return this.decryptForReturn(this.verifyPersisted(rowToRecord(row)))
   }
 
   async search(input: SearchInput): Promise<SearchResult[]> {
     if (this.embedder) {
       return this.semanticSearch(input, this.embedder)
+    }
+    if (this.masterKey) {
+      throw new MnemeError(
+        'unsupported_payload_mode',
+        'lexical search (FTS5) cannot index ciphertext; pass an Embedder to enable semantic recall under encryption',
+      )
     }
     return this.lexicalSearch(input)
   }
@@ -288,7 +380,8 @@ export class SqliteStore implements MnemeStore {
       )
       if (candidateVec.length !== queryVec.length) continue
       const score = cosineSimilarity(queryVec, candidateVec)
-      ranked.push({ record: await this.decryptForReturn(rowToRecord(row)), score })
+      const record = await this.decryptForReturn(this.verifyPersisted(rowToRecord(row)))
+      ranked.push({ record, score })
     }
     ranked.sort((a, b) => b.score - a.score)
     return ranked.slice(0, limit)
@@ -330,6 +423,8 @@ export class SqliteStore implements MnemeStore {
     const newId = MemoryIdSchema.parse(ulid(now.getTime()))
     const embedding = await this.embedIfPossible(input.replacement.body)
     const persistedBody = await this.encryptForPersistence(input.replacement.body, newId)
+    const createdAt = now.toISOString()
+    const signature = this.signPersisted(input.replacement.ownerId, newId, createdAt, persistedBody)
     const replacement = MemoryRecordSchema.parse({
       id: newId,
       ownerId: input.replacement.ownerId,
@@ -338,6 +433,7 @@ export class SqliteStore implements MnemeStore {
       metadata: buildMetadata(input.replacement, now),
       lifecycle: {},
       ...(embedding ? { embedding } : {}),
+      ...(signature ? { signature } : {}),
     })
     const previousLifecycle: MemoryLifecycle = {
       ...previous.lifecycle,
@@ -355,7 +451,7 @@ export class SqliteStore implements MnemeStore {
         .run(JSON.stringify(previousLifecycle), newId, input.ownerId, input.supersededId)
     })
     tx()
-    return this.decryptForReturn(replacement)
+    return this.decryptForReturn(this.verifyPersisted(replacement))
   }
 
   async *export(input: ExportInput): AsyncIterable<MemoryRecord> {
@@ -368,12 +464,57 @@ export class SqliteStore implements MnemeStore {
       )
       .all(input.ownerId, since)
     for (const row of rows) {
-      yield await this.decryptForReturn(rowToRecord(row))
+      yield await this.decryptForReturn(this.verifyPersisted(rowToRecord(row)))
     }
   }
 
   close(): void {
     this.db.close()
+  }
+
+  /**
+   * Sign the persisted form of a record with the store's Ed25519 private
+   * key. Returns undefined for plaintext stores (no signing keys available).
+   */
+  private signPersisted(
+    ownerId: string,
+    id: string,
+    createdAt: string,
+    body: Payload,
+  ): string | undefined {
+    if (!this.signingKeys) return undefined
+    const payload = recordSigningPayload({
+      ownerId,
+      id,
+      createdAt,
+      body: bodyForSigning(body),
+    })
+    return toBase64Url(sign(payload, this.signingKeys.privateKey))
+  }
+
+  /**
+   * Verify the signature on a record against the persisted body form. Pass-
+   * through for plaintext stores. Pass-through for records with no signature
+   * (records written before encryption was enabled). Throws `invalid_record`
+   * on a tampered or mismatched signature.
+   */
+  private verifyPersisted(record: MemoryRecord): MemoryRecord {
+    if (!this.signingKeys) return record
+    if (record.signature === undefined) return record
+    const payload = recordSigningPayload({
+      ownerId: record.ownerId,
+      id: record.id,
+      createdAt: record.metadata.createdAt,
+      body: bodyForSigning(record.body),
+    })
+    const sig = fromBase64Url(record.signature)
+    if (!verify(sig, payload, this.signingKeys.publicKey)) {
+      throw new MnemeError(
+        'invalid_record',
+        `signature verification failed for record ${record.id}`,
+      )
+    }
+    return record
   }
 
   /**
@@ -479,6 +620,13 @@ export class SqliteStore implements MnemeStore {
         record.lifecycle.forgetAt ?? null,
       )
   }
+}
+
+function bodyForSigning(
+  body: Payload,
+): { mode: 'plaintext'; data: string } | { mode: 'aes-gcm-256'; ciphertext: string } {
+  if (body.mode === 'plaintext') return { mode: 'plaintext', data: body.data }
+  return { mode: 'aes-gcm-256', ciphertext: body.ciphertext }
 }
 
 function buildMetadata(input: WriteInput, now: Date): MemoryMetadata {

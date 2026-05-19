@@ -1,9 +1,11 @@
 export { Mneme } from './mneme'
 export type {
-  MnemeOptions,
-  RememberInput,
-  RecallOptions,
+  EncryptedMnemeOptions,
   ForgetOptions,
+  InitializeResult,
+  MnemeOptions,
+  RecallOptions,
+  RememberInput,
 } from './mneme'
 
 export { SqliteStore } from './store/sqlite'

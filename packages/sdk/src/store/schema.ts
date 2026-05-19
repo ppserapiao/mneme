@@ -66,16 +66,23 @@ BEGIN
   DELETE FROM memories_fts WHERE id = OLD.id;
 END;
 
-CREATE TABLE IF NOT EXISTS crypto_metadata (
-  id                  INTEGER PRIMARY KEY CHECK (id = 1),
-  salt                BLOB    NOT NULL,
-  verifier_ciphertext BLOB    NOT NULL,
-  verifier_nonce      BLOB    NOT NULL,
-  kdf_algorithm       TEXT    NOT NULL DEFAULT 'argon2id',
-  kdf_memory_kib      INTEGER NOT NULL,
-  kdf_iterations      INTEGER NOT NULL,
-  kdf_parallelism     INTEGER NOT NULL,
-  kdf_output_length   INTEGER NOT NULL,
-  created_at          TEXT    NOT NULL
+-- v0.0.4 keyring. Replaces the v0.0.3 crypto_metadata table, which
+-- existed only in dev preview stores and is intentionally not migrated.
+-- The master key is a random 256-bit value, wrapped independently under
+-- the passphrase-derived key and the recovery-phrase entropy.
+CREATE TABLE IF NOT EXISTS mneme_keyring (
+  id                               INTEGER PRIMARY KEY CHECK (id = 1),
+  schema_version                   INTEGER NOT NULL DEFAULT 2,
+  passphrase_salt                  BLOB    NOT NULL,
+  wrapped_by_passphrase_ciphertext BLOB    NOT NULL,
+  wrapped_by_passphrase_nonce      BLOB    NOT NULL,
+  wrapped_by_recovery_ciphertext   BLOB    NOT NULL,
+  wrapped_by_recovery_nonce        BLOB    NOT NULL,
+  kdf_algorithm                    TEXT    NOT NULL DEFAULT 'argon2id',
+  kdf_memory_kib                   INTEGER NOT NULL,
+  kdf_iterations                   INTEGER NOT NULL,
+  kdf_parallelism                  INTEGER NOT NULL,
+  kdf_output_length                INTEGER NOT NULL,
+  created_at                       TEXT    NOT NULL
 );
 `

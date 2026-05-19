@@ -7,7 +7,7 @@ import type {
   WriteMetadata,
 } from '@mneme/protocol'
 import { MnemeError, OwnerIdSchema } from '@mneme/protocol'
-import type { KdfParams } from './crypto'
+import { type KdfParams, toBase64Url } from './crypto'
 import type { Embedder } from './embedder/types'
 import { SqliteStore } from './store/sqlite'
 import type { Clock } from './util/clock'
@@ -30,26 +30,24 @@ export type MnemeOptions = {
    * against any provider.
    */
   embedder?: Embedder
+}
 
+export type EncryptedMnemeOptions = MnemeOptions & {
   /**
    * Passphrase for the encryption envelope. When set, plaintext bodies are
-   * sealed at rest with AES-256-GCM and the master key is derived via
-   * Argon2id with a salt stored in the database.
-   *
-   * Encrypted mode requires the async factory: `await Mneme.open({ passphrase })`.
-   * The synchronous `new Mneme()` constructor stays plaintext-only and throws
-   * when given a passphrase.
-   *
-   * v0.0.3 has NO recovery phrase yet — losing the passphrase means losing
-   * the data. Recovery phrase support lands in v0.0.4.
+   * sealed at rest with AES-256-GCM and the master key is wrapped by an
+   * Argon2id-derived key plus a BIP-39 recovery phrase.
    */
   passphrase?: string
 
+  /** Alternative to `passphrase` for `Mneme.open()` — the user's BIP-39 recovery phrase. */
+  recoveryPhrase?: string
+
   /**
-   * Argon2id parameters used the first time an encrypted store is initialised.
+   * Argon2id parameters used the first time a keyring is initialised.
    * Defaults to OWASP-recommended interactive settings (64 MiB, 3 iterations).
    * Reduce for tests; increase for high-security deployments. Stored to the
-   * DB on first init, ignored on subsequent opens (the persisted params win).
+   * keyring on first init, ignored on subsequent opens.
    */
   kdfParams?: KdfParams
 }
@@ -74,22 +72,40 @@ export type ForgetOptions = {
 }
 
 /**
+ * Returned from `Mneme.initialize()`. The recovery phrase is shown to the
+ * user ONCE — the SDK does not retain a copy and there is no way to display
+ * it again later. Lose it together with the passphrase and the store is
+ * permanently unreadable.
+ */
+export type InitializeResult = {
+  mneme: Mneme
+  recoveryPhrase: string
+}
+
+/**
  * The developer-facing entry point to a local Mneme store.
  *
- * Zero-config by design: `new Mneme()` opens a SQLite file at a sensible
- * platform location and exposes English verbs over the protocol-level
- * `MnemeStore` contract. Hosted, encrypted, and synced variants land in
- * later SDK versions and ship as drop-in alternative constructors.
+ * - `new Mneme()` — synchronous, plaintext-only local store.
+ * - `await Mneme.open({ passphrase | recoveryPhrase })` — open an existing
+ *   encrypted store.
+ * - `await Mneme.initialize({ passphrase })` — create a NEW encrypted store
+ *   and receive its recovery phrase exactly once.
  */
 export class Mneme {
   private readonly store: SqliteStore
   private readonly ownerId: OwnerId
 
   constructor(options: MnemeOptions = {}) {
-    if (options.passphrase !== undefined) {
+    if ((options as EncryptedMnemeOptions).passphrase !== undefined) {
       throw new MnemeError(
         'invalid_record',
-        'Encrypted mode requires the async factory: await Mneme.open({ passphrase }). The sync constructor is plaintext-only.',
+        'Encrypted mode requires the async factory: await Mneme.initialize({ passphrase }) for a new store, or Mneme.open({ passphrase | recoveryPhrase }) for an existing one. The sync constructor is plaintext-only.',
+      )
+    }
+    if ((options as EncryptedMnemeOptions).recoveryPhrase !== undefined) {
+      throw new MnemeError(
+        'invalid_record',
+        'Encrypted mode requires the async factory: await Mneme.open({ recoveryPhrase }). The sync constructor is plaintext-only.',
       )
     }
     this.ownerId = OwnerIdSchema.parse(options.ownerId ?? 'local')
@@ -101,28 +117,55 @@ export class Mneme {
   }
 
   /**
-   * Recommended way to construct a `Mneme` instance, especially when
-   * encryption is desired. Supports both modes:
+   * Create a NEW encrypted store. Generates a fresh master key, wraps it
+   * under both an Argon2id-derived passphrase key and a 24-word BIP-39
+   * recovery phrase, derives an Ed25519 signing keypair, and persists the
+   * keyring.
    *
-   *   const m = await Mneme.open()                    // plaintext local mode
-   *   const m = await Mneme.open({ passphrase: 'x' }) // encrypted mode
+   * The returned `recoveryPhrase` is the only copy the SDK will ever produce.
+   * Show it to the user once and never retain it server-side.
    *
-   * In encrypted mode the master key is derived from the passphrase via
-   * Argon2id and verified against a stored verifier; a wrong passphrase
-   * raises an `unauthorized` MnemeError without decrypting any record.
+   * Throws `conflict` if the target store already has a keyring (use
+   * `Mneme.open` instead).
    */
-  static async open(options: MnemeOptions = {}): Promise<Mneme> {
-    const { passphrase, kdfParams, ...rest } = options
-    if (passphrase === undefined) {
-      return new Mneme(rest)
+  static async initialize(options: EncryptedMnemeOptions): Promise<InitializeResult> {
+    if (options.passphrase === undefined) {
+      throw new MnemeError('invalid_record', 'Mneme.initialize requires a passphrase')
     }
-    // Construct via the sync path with passphrase removed so the constructor
-    // does not refuse it, then layer encryption on by deriving the master key.
+    const { passphrase, kdfParams, recoveryPhrase, ...rest } = options
+    void recoveryPhrase
     const mneme = new Mneme(rest)
-    if (kdfParams !== undefined) {
-      await mneme.store.openMasterKey(passphrase, kdfParams)
-    } else {
-      await mneme.store.openMasterKey(passphrase)
+    const { recoveryPhrase: phrase } =
+      kdfParams !== undefined
+        ? await mneme.store.initialiseKeyring(passphrase, kdfParams)
+        : await mneme.store.initialiseKeyring(passphrase)
+    return { mneme, recoveryPhrase: phrase }
+  }
+
+  /**
+   * Open an existing store. Behaviour by options:
+   *
+   *   await Mneme.open()                          // plaintext local mode
+   *   await Mneme.open({ passphrase })            // existing encrypted store
+   *   await Mneme.open({ recoveryPhrase })        // existing encrypted store via recovery
+   *
+   * Throws `unauthorized` on wrong passphrase / invalid phrase, and
+   * `record_not_found` when no keyring exists yet (use `Mneme.initialize`).
+   */
+  static async open(options: EncryptedMnemeOptions = {}): Promise<Mneme> {
+    const { passphrase, recoveryPhrase, kdfParams, ...rest } = options
+    void kdfParams
+    if (passphrase !== undefined && recoveryPhrase !== undefined) {
+      throw new MnemeError(
+        'invalid_record',
+        'pass either passphrase or recoveryPhrase to Mneme.open, not both',
+      )
+    }
+    const mneme = new Mneme(rest)
+    if (passphrase !== undefined) {
+      await mneme.store.openWithPassphrase(passphrase)
+    } else if (recoveryPhrase !== undefined) {
+      await mneme.store.openWithRecoveryPhrase(recoveryPhrase)
     }
     return mneme
   }
@@ -130,6 +173,16 @@ export class Mneme {
   /** Whether the underlying store is in encryption-at-rest mode. */
   get encrypted(): boolean {
     return this.store.encrypted
+  }
+
+  /**
+   * Ed25519 public key for this store as a base64url string. Anyone with
+   * this key can verify the `signature` on a `MemoryRecord` written by this
+   * store. Returns `undefined` when the store is in plaintext mode.
+   */
+  get publicKey(): string | undefined {
+    const key = this.store.publicKey
+    return key ? toBase64Url(key) : undefined
   }
 
   /** Persist a new memory. Returns the canonical record that was stored. */
@@ -148,7 +201,11 @@ export class Mneme {
     })
   }
 
-  /** Search over plaintext memories. Semantic when an `embedder` is configured; lexical BM25 otherwise. Returns ranked records with scores. */
+  /**
+   * Search over plaintext memories. Semantic when an `embedder` is configured;
+   * lexical BM25 otherwise. Throws `unsupported_payload_mode` when called on
+   * an encrypted store without an embedder — FTS5 cannot index ciphertext.
+   */
   async recall(query: string, options: RecallOptions = {}): Promise<SearchResult[]> {
     return this.store.search({
       ownerId: this.ownerId,
