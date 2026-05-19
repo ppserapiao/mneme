@@ -7,6 +7,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# npm pack artefacts (verify-package and dry-runs leave these behind)
+*.tgz
+
 # Test artifacts
 coverage/
 .nyc_output/

@@ -37,37 +37,38 @@ From here on, each package versions independently. A passphrase-rotation API cha
 
 The monorepo git tag continues to track the *whole-repo state*: v0.0.8 → **v0.1.0** for this PR to match the coordinated bump.
 
-### 3. `publishConfig` to swap exports between dev and published
+### 3. Package shape — `dist/` paths everywhere, `prepublishOnly` keeps them fresh
 
-Inside the workspace we want `@mnemehq/sdk` to resolve to `src/index.ts` directly — fast iteration, TypeScript-native, no build step required for `bun test`. When consumers install the package from npm we want them to get `dist/index.js` + `dist/index.d.ts`, no TypeScript source.
+> **Superseded by the postmortem at the bottom of this ADR.** The original §3 specified a `publishConfig.main` / `publishConfig.exports` swap. npm silently ignores those keys, and the resulting v0.1.0 publish was broken end-to-end. The shape below is what actually ships.
 
-`publishConfig` in `package.json` is the npm-native way to override fields *only* at publish time:
+Top-level fields point directly at the build output. Workspace dev resolves through `dist/`, same as npm consumers. A `prepublishOnly` script keeps `dist/` fresh and runs the safety net before every publish. The canonical shape:
 
 ```json
 {
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
-  "files": ["src", "dist", "README.md", "LICENSE"],
-  "publishConfig": {
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      }
-    }
-  }
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepublishOnly": "bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict"
+  },
+  "publishConfig": { "access": "public" }
 }
 ```
 
-Workspace dev: source-mode resolution. Published package: dist-mode resolution. No `prepublishOnly` magic needed beyond making sure `dist/` exists.
+Trade-off: workspace dev now needs `dist/` to exist before workspace consumers can import it. `bun install` does not build automatically. Either run `bun run build` once after a fresh clone, or `bun run --filter '*' dev` for a continuous tsdown watch. CI handles this with an explicit `bun run build` step before `bun test`.
+
+For workspace cross-package deps: use real semver ranges (`"@mnemehq/protocol": "^0.1.1"`), **not** `workspace:*`. npm does not rewrite `workspace:` references on publish, so they leak into the registry and break installs. Bun's resolver still picks the local workspace member when the range matches.
 
 ### 4. What we publish — five packages
 
@@ -134,3 +135,48 @@ Negative:
 - **Use JSR (Deno's package registry) in addition to npm.** Real consideration — JSR has nice TypeScript-native publishing. Deferred to v0.1.x once npm is established.
 - **Bundle each package into a single file.** Considered — gives smaller install for consumers. Rejected for v0.1.0: keeping `dist/` close to the source structure makes debugging easier and Bun's loader handles many files efficiently. We can revisit if install size becomes a real complaint.
 - **Set up CI publishing now via Changesets.** Considered. Deferred to keep this PR scoped to "get one publish working." Changesets gets its own ADR when the first set of mid-PR version bumps comes through.
+
+## Postmortem — 2026-05-19 publish incident
+
+The first publish of v0.1.0 shipped five broken packages: `@mnemehq/protocol`, `@mnemehq/sdk`, `@mnemehq/embedder-local`, `@mnemehq/sync-websocket`, `@mnemehq/mcp-server`. All five `npm publish` calls reported success. All five were unusable on install.
+
+### What broke
+
+**Bug A — `publishConfig.main` / `types` / `exports` / `bin` overrides are inert.** This ADR's original §3 specified a "dual-exports" pattern: workspace dev resolves `./src/index.ts`, npm consumers get `./dist/index.js` via a `publishConfig` field swap. npm CLI prints `Unknown publishConfig config "main"` warnings for these keys *but does not apply the override*. The published `package.json` retained `main: "./src/index.ts"` — a path that did not exist inside the tarball, since `files: ["dist", "README.md", "LICENSE"]` correctly excluded `src/`. Any consumer running `bun add @mnemehq/sdk` and `import { ... } from '@mnemehq/sdk'` would get a module-resolution error pointing at `./src/index.ts`.
+
+**Bug B — `workspace:*` dependency specifiers leak into the registry.** The `workspace:` protocol is understood by Bun / pnpm / Yarn but not by npm. `npm pack` (and `npm publish`, even with `--workspace`) writes `"@mnemehq/protocol": "workspace:*"` verbatim into the published `package.json`. Consumers then hit "invalid version specifier" on install. pnpm and Yarn rewrite these at pack time; npm does not.
+
+**Bug C — npm `bin` entries pointing at `.ts` files are silently stripped.** `apps/mcp-server/package.json` had `"bin": { "mneme-mcp": "./src/index.ts" }`. npm `publish` printed `"bin[mneme-mcp]" script name src/index.ts was invalid and removed` and shipped the package with no `bin` entry at all. `npx -y @mnemehq/mcp-server` would have failed even if the rest of the package had worked.
+
+### What we did about it
+
+1. **All five 0.1.0 versions were unpublished from the registry.** Within the 72h window so it was permitted, but the version numbers are now burned — npm forbids republishing the same version after `npm unpublish`.
+2. **v0.1.1 is the first usable release.** Every publishable package was bumped 0.1.0 → 0.1.1 in lockstep with the fix.
+3. **§3 of this ADR is superseded.** Top-level `main` / `types` / `exports` (and `bin` for the mcp-server) point directly at `./dist/*`. `publishConfig` retains only `{ "access": "public" }` — its sole documented and reliable purpose.
+4. **Workspace deps use real semver ranges.** `"@mnemehq/protocol": "^0.1.1"` instead of `workspace:*`. Bun's resolver still uses local workspace members because the workspace package's version matches the range; npm consumers get a valid version specifier.
+
+### The safety net that should have caught this (and now does)
+
+Three failures of process produced this incident: I misread npm warnings as advisory rather than disqualifying, I didn't verify a published tarball's metadata before declaring success, and the codebase had no automated check between `bun test` and `npm publish`. The codebase now enforces those checks automatically.
+
+**Layer 1 — `publint --strict`** (community-standard linter; https://publint.dev). Catches static `package.json` mistakes: missing `types`, invalid `exports` shape, repo URL formats, `sideEffects` recommendations. Doesn't catch the specific bug here (it resolves paths against the filesystem, not the tarball), but catches an adjacent class.
+
+**Layer 3 — `scripts/verify-package.ts`** (we own this). Runs `npm pack --dry-run --json`, parses the file list npm would publish, then asserts:
+
+1. Every path declared in `main` / `module` / `types` / `typings` / `exports` (recursively, for nested condition maps) / `bin` exists inside the tarball.
+2. No `dependencies` / `devDependencies` / `peerDependencies` / `optionalDependencies` entry uses `workspace:*` or any other `workspace:` protocol form.
+
+Either failure makes the script exit non-zero with a precise diagnostic naming the offending field.
+
+(There was a Layer 2 — `@arethetypeswrong/cli` — for ESM/CJS dual-package hazards. Removed pending Node 24 compatibility; we're ESM-only so the value is marginal. Tracked as a follow-up issue.)
+
+**Where the safety net runs:**
+
+- `prepublishOnly` script on every publishable `package.json`: `bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict`. npm executes `prepublishOnly` automatically before every `npm publish` and `npm publish --dry-run`. There is no opt-out short of `--ignore-scripts`, which the runbook explicitly forbids.
+- A dedicated `publish-pipeline` job in `.github/workflows/ci.yml`. Same chain, run on every PR. A broken package.json fails the merge gate, not just the publish.
+
+The next person who introduces a `workspace:*` reference or a `main` pointing to a non-existent path will see verify-package.ts print an unmistakable error and refuse to ship. Twice-locked.
+
+### Lessons captured into the feedback memory
+
+A `feedback_npm_publishing_traps.md` entry now records: **(a)** npm prints "Unknown publishConfig config" as a warning but treats those keys as inert; never rely on `publishConfig.main` / `types` / `exports` / `bin`; **(b)** `workspace:*` does not survive `npm publish`; use semver ranges; **(c)** always run `prepublishOnly` (or its equivalent locally) before declaring a publish successful; **(d)** verify metadata of a published package by `npm pack <name>@<version>` + reading the tarball's package.json, not by the publish CLI's success message.

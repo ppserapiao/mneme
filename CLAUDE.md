@@ -133,13 +133,22 @@ Default branch is `main`. Pedro is not deeply technical with git/GitHub — Clau
 
 ### 3. Quality gates that block merge
 
-Before opening a PR — and again before squashing it — these MUST pass locally and in CI:
+Before opening a PR — and again before squashing it — these MUST pass locally and in CI, in this order:
 
 ```sh
-bun run build       # tsdown across every publishable package
+bun install
+bun run build       # REQUIRED FIRST — workspace consumers resolve types via ./dist/*.d.ts
 bun run lint        # biome check .
 bun run --filter '*' typecheck
 bun test
+```
+
+**Why build comes first**: every publishable `package.json` now points `main` / `types` / `exports` directly at `./dist/*` (ADR 0011 §3). Workspace consumers (e.g. `@mnemehq/sync-websocket` importing `@mnemehq/sdk`) resolve types and runtime through `./dist/index.{js,d.ts}` — those files don't exist on a fresh clone until `bun run build` runs. Skipping the build step leaves `bun test` and `tsc --noEmit` unable to resolve workspace imports.
+
+For active development, keep continuous builds running in a side terminal so the dist/ outputs stay fresh as you edit:
+
+```sh
+bun run --filter '*' dev    # runs `tsdown --watch` in every package
 ```
 
 If a check fails, fix the root cause. Do not skip hooks or disable the check.
@@ -188,10 +197,21 @@ gh release create vX.Y.Z --generate-notes
 
 **Conventions**
 
-- `publishConfig` in each `package.json` swaps `main`/`types`/`exports`/`bin` from `./src/index.ts` (workspace dev) to `./dist/index.js` (consumer). Never touch the dist paths in workspace dev; never touch the src paths in published output.
+- Every publishable `package.json` points `main` / `types` / `exports` (and `bin` for the mcp-server) directly at `./dist/*`. **There is no `publishConfig.main` / `publishConfig.exports` swap** — npm silently ignores those keys and the resulting published packages are broken (see ADR 0011 §7, "Incident 2026-05-19"). Top-level fields are the only source of truth.
+- `dependencies` and `peerDependencies` use **real semver ranges** (e.g. `"@mnemehq/protocol": "^0.1.1"`), not `workspace:*`. npm does not rewrite the `workspace:` protocol at pack time, so `workspace:*` would leak into the published tarball and break installs. Bun's resolver still uses the local workspace member when the semver range matches.
+- `prepublishOnly` runs `bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict` on every package. **Do not edit this script away** — it is the only thing preventing broken packages from reaching the registry. The CI workflow runs the same checks on every PR so failures land at merge time, not at publish time.
 - Tarball contents are `["dist", "README.md", "LICENSE"]` — nothing else. If `npm pack --dry-run` lists test files or source files, stop and fix the `files` array before publishing.
-- Once a version is on npm it cannot be unpublished cleanly after 72 hours. Treat the dry-run output as a gate, not a formality.
+- Once a version is on npm it cannot be republished after `npm unpublish` (versions are burned). Treat each publish as final and bump on any fix.
 - After publish, update `project_mneme_current_state.md` memory with the new versions and any deferred-list changes.
+
+**Safety net layers (these run automatically; learn them anyway)**
+
+| Layer | Tool | Catches |
+| --- | --- | --- |
+| L1 | `publint --strict` | static package.json mistakes — invalid `exports` shape, missing `types`, repo URL wrong, recommendations like `sideEffects` |
+| L3 | `scripts/verify-package.ts` (we own this) | every path in `main` / `types` / `exports` / `bin` exists in the tarball npm would publish; no `workspace:*` leaks into any deps block |
+
+(L2 was `arethetypeswrong/cli`; removed pending Node 24 compatibility — see GH follow-up.)
 
 ### 4. Memory hygiene
 

@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Workspace packages expose types via ./dist/index.d.ts (top-level
+      # `types`), so workspace consumers can't resolve `@mnemehq/sdk` etc.
+      # until dist/ exists. Build first, then typecheck + test work.
+      - name: Build all publishable packages
+        run: bun run build
+
       - name: Lint
         run: bun run lint
 
@@ -35,3 +41,58 @@ jobs:
 
       - name: Test
         run: bun test
+
+  publish-pipeline:
+    name: publish-pipeline (build · publint · verify-package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (for npm pack — verify-package runs `npm pack --dry-run --json`)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build all packages
+        run: bun run build
+
+      # The same chain prepublishOnly enforces locally. Failing here blocks
+      # merge; failing in prepublishOnly blocks the actual publish. Two doors,
+      # same lock.
+      - name: L1 — publint (strict) every publishable package
+        run: |
+          set -e
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+            echo "::group::publint $pkg"
+            bunx publint "$pkg" --strict
+            echo "::endgroup::"
+          done
+
+      - name: L3 — verify-package tarball forensics on every publishable package
+        run: |
+          set -e
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+            echo "::group::verify-package $pkg"
+            (cd "$pkg" && bun ../../scripts/verify-package.ts .)
+            echo "::endgroup::"
+          done
+
+      - name: npm pack dry-run every publishable package (final safety)
+        run: |
+          set -e
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+            echo "::group::npm pack --dry-run $pkg"
+            (cd "$pkg" && npm pack --dry-run)
+            echo "::endgroup::"
+          done

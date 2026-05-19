@@ -1,46 +1,40 @@
 {
   "name": "@mnemehq/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK for the Mneme Protocol — local-first, user-sovereign memory for AI apps.",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsdown",
+    "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict"
   },
   "dependencies": {
-    "@mnemehq/protocol": "workspace:*",
+    "@mnemehq/protocol": "^0.1.1",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "@scure/bip39": "^2.2.0",
     "ulid": "^2.3.0"
   },
   "publishConfig": {
-    "access": "public",
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      }
-    }
+    "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppserapiao/mneme.git",
+    "url": "git+https://github.com/ppserapiao/mneme.git",
     "directory": "packages/sdk"
   },
   "keywords": ["mneme", "memory", "ai", "sdk", "local-first", "sqlite"]
