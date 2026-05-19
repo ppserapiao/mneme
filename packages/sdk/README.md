@@ -2,7 +2,7 @@
 
 The TypeScript SDK for the [mneme Protocol](../../docs/protocol).
 
-> Status: `v0.0.7`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network sync transports + hosted backend land in v0.0.8+.
+> Status: `v0.0.7`. Local-first, with **AES-256-GCM encryption at rest**, **BIP-39 recovery phrase**, **Ed25519 signed writes**, **two-way sync engine**, **multi-device pairing ceremony**, and pluggable on-device semantic recall. Network transports ship in the companion [`@mneme/sync-websocket`](../sync-websocket) package; hosted backend lands in v0.1.0.
 
 ## Install
 
@@ -128,6 +128,8 @@ After pairing, B has its own keyring (own passphrase, own recovery phrase) wrapp
 
 The cryptographic design (X25519 ECDH + HKDF-SHA256 + AES-256-GCM, 6-digit SAS, 5-minute session expiry, replay protection) is in [ADR 0009](../../decisions/0009-multi-device-pairing-ceremony.md). **Always verify the SAS on a side channel** the user trusts (in person, voice call, signed Signal message) — if you skip verification, an active MITM can substitute their own keys.
 
+For real cross-machine pairing over the network, use [`@mneme/sync-websocket`](../sync-websocket) which wraps the three-message ceremony in a WebSocket flow with `onSasReady` callbacks gating commit.
+
 ## Sync (multi-device, transport-agnostic)
 
 ```ts
@@ -153,7 +155,7 @@ The engine is the load-bearing wall of the differentiation — it converges two 
 
 The merge is commutative, associative, and idempotent. See [ADR 0008](../../decisions/0008-sync-engine-design.md) for the full design.
 
-`SyncPeer` is the transport-agnostic interface (`catalog`, `fetch`, `push`). v0.0.6 ships `InProcessSyncPeer` for tests / single-process demos. WebSocket and HTTP transports — including the hosted Mneme Cloud target — implement the same three methods in later versions, and the engine doesn't change.
+`SyncPeer` is the transport-agnostic interface (`catalog`, `fetch`, `push`). The SDK ships `InProcessSyncPeer` for tests / single-process demos. [`@mneme/sync-websocket`](../sync-websocket) ships `WebSocketSyncPeer` + `WebSocketSyncServer` for real cross-machine sync. The hosted Mneme Cloud target (v0.1.0) will implement the same three methods over HTTPS+JSON. The engine doesn't change.
 
 > Encrypted sync currently requires both peers to share the same master key. The **pairing ceremony** that establishes that shared key on a second device is the v0.0.7 work. v0.0.6 ships the engine.
 

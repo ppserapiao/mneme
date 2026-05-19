@@ -29,7 +29,8 @@ mneme/
 ├── packages/             ← Libraries published to npm
 │   ├── protocol/         ← @mneme/protocol — the open spec, as types
 │   ├── sdk/              ← @mneme/sdk — TypeScript reference implementation
-│   └── embedder-local/   ← @mneme/embedder-local — on-device embeddings via transformers.js
+│   ├── embedder-local/   ← @mneme/embedder-local — on-device embeddings via transformers.js
+│   └── sync-websocket/   ← @mneme/sync-websocket — WebSocket transport for sync + pairing
 ├── apps/
 │   └── mcp-server/       ← @mneme/mcp-server — Model Context Protocol server for Claude Code et al.
 ├── docs/
@@ -83,6 +84,41 @@ claude mcp add mneme bun -- run apps/mcp-server/src/index.ts
 ```
 
 Now `mneme_remember`, `mneme_recall`, `mneme_get`, `mneme_forget`, `mneme_supersede`, `mneme_export` are available as MCP tools in Claude Code. See [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for the encrypted-mode setup.
+
+### Sync across two laptops over a LAN
+
+```ts
+// On device A
+import { Mneme } from '@mneme/sdk'
+import { WebSocketSyncServer, serveForPairing } from '@mneme/sync-websocket'
+
+const alice = await Mneme.open({ passphrase: '...' })
+await serveForPairing(alice, {
+  onUrlReady: (url) => console.log(`Pair to ${url}`),
+  onSasReady: async (sas) => userConfirms(sas), // your UI
+})
+
+// Once paired, expose alice for sync
+const server = new WebSocketSyncServer({ mneme: alice, allowedOwnerId: 'pedro' })
+server.start()
+```
+
+```ts
+// On device B
+import { Mneme } from '@mneme/sdk'
+import { WebSocketSyncPeer, pairOverWebSocket } from '@mneme/sync-websocket'
+
+const { mneme: bob } = await pairOverWebSocket({
+  url: 'ws://192.168.1.10:7078',
+  passphrase: 'bob-passphrase',
+  path: '/path/b.sqlite',
+  onSasReady: async (sas) => userConfirms(sas),
+})
+
+await bob.sync(new WebSocketSyncPeer({ url: 'ws://192.168.1.10:7077' }))
+```
+
+See [`packages/sync-websocket/README.md`](./packages/sync-websocket/README.md) for the full transport flow + security notes.
 
 ## For contributors
 
