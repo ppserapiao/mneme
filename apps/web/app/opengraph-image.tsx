@@ -14,23 +14,29 @@ export const contentType = 'image/png'
  * and Newsreader italic (for the muted "remember" line).
  */
 async function loadGoogleFont(family: string, weight = 400, italic = false): Promise<ArrayBuffer> {
-  const style = italic ? 'ital@1' : `wght@${weight}`
-  const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:${style}&display=swap`
+  // Google Fonts CSS2 expects family names with `+` for spaces (not %20 / %2B
+  // from encodeURIComponent), and italic uses the `ital,wght@1,WEIGHT` tuple
+  // syntax — `ital@1` alone returns an empty response.
+  const familyParam = family.replace(/ /g, '+')
+  const styleParam = italic ? `ital,wght@1,${weight}` : `wght@${weight}`
+  const url = `https://fonts.googleapis.com/css2?family=${familyParam}:${styleParam}&display=swap`
   const css = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
   }).then((r) => r.text())
-  const fontUrl = css.match(/src:\s*url\((https:\/\/[^)]+)\)/)?.[1]
-  if (!fontUrl) throw new Error(`Failed to resolve font URL for ${family}`)
+  const fontUrl = css.match(/src:\s*url\((https:\/\/[^)]+\.woff2?)\)/)?.[1]
+  if (!fontUrl) {
+    throw new Error(`Failed to resolve font URL for ${family} (italic=${italic}, weight=${weight})`)
+  }
   return fetch(fontUrl).then((r) => r.arrayBuffer())
 }
 
 export default async function OG() {
   const [instrumentSerif, instrumentSerifItalic, newsreaderItalic, spaceGrotesk] =
     await Promise.all([
-      loadGoogleFont('Instrument+Serif', 400, false),
-      loadGoogleFont('Instrument+Serif', 400, true),
+      loadGoogleFont('Instrument Serif', 400, false),
+      loadGoogleFont('Instrument Serif', 400, true),
       loadGoogleFont('Newsreader', 400, true),
-      loadGoogleFont('Space+Grotesk', 500, false),
+      loadGoogleFont('Space Grotesk', 500, false),
     ])
 
   return new ImageResponse(
