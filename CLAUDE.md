@@ -158,16 +158,28 @@ If a check fails, fix the root cause. Do not skip hooks or disable the check.
 `bun run eval` exercises the distiller against a curated 30-sample corpus under `tests/eval/corpus/` (6 categories: personal-chat, journal, slack, meeting-notes, edge-cases, domain-specific) and reports precision / recall / F1 per category and overall. **This is the artefact that turns "the distiller works" into "the distiller scores X on the canonical corpus"** — see ADR 0013 for full methodology.
 
 ```sh
-bun run eval                # mock mode — free, deterministic, ~50ms
-bun run eval:live           # real Anthropic call — needs ANTHROPIC_API_KEY exported
-bun run eval:baseline       # real Anthropic + writes the markdown baseline
+bun run eval                              # mock mode — free, deterministic, ~50ms
+bun run eval:live                         # real Anthropic distillation, strict scoring only
+bun run eval:live -- --judge=claude       # real Anthropic + LLM-as-judge semantic scoring (ADR 0014)
+bun run eval:baseline                     # real Anthropic + writes the markdown baseline (no judge)
+bun run eval:baseline -- --judge=claude   # real Anthropic + judge + writes baseline with both numbers
 ```
 
 **Never paste the API key into chat.** Set it in your own terminal: `export ANTHROPIC_API_KEY='sk-ant-...'`, then run from that terminal. The key never needs to leave your shell.
 
-Costs ~£0.30-£0.60 per `--live` run cache-warm against Sonnet. Hard cap defaults to $5 per run via `--max-cost-usd N`.
+**Two matchers, both reported (ADR 0014)**. Every eval run scores the same distillation output with two matchers:
 
-Each run writes a structured JSON report to `tests/eval/reports/` (gitignored). `--write-baseline` additionally writes the markdown to `tests/eval/baselines/<promptVersion>__<model>.md`, which IS committed. PRs that change `packages/distiller-claude/src/prompts.ts` must update the baseline file and the reviewer compares old vs new F1.
+- **Strict (keyword)** — always runs. Case-insensitive substring matching against `mustInclude` keywords. Free, deterministic, reproducible. Used as the CI regression gate.
+- **Semantic (LLM-as-judge)** — opt-in via `--judge=claude`. Claude judges whether each extracted memory is semantically equivalent to the expected entry. Reveals quality the strict matcher under-counts (e.g. "Lives in London" ≈ "Based in London"). Used for public quality reporting + failure analysis.
+
+Both metrics land in the same `EvalReport` and render side-by-side in the console + markdown baseline.
+
+Costs:
+- Distillation: ~£0.10-£0.15 per run cache-warm against Sonnet.
+- Judge (Haiku-4-5 default): ~£0.05-£0.10 per run. Override via `--judge-model=<model>`.
+- Hard cap on distillation defaults to $5 via `--max-cost-usd N`. Judge spend tracked separately.
+
+Each run writes a structured JSON report to `tests/eval/reports/` (gitignored). `--write-baseline` additionally writes the markdown to `tests/eval/baselines/<promptVersion>__<model>.md`, which IS committed. PRs that change `packages/distiller-claude/src/prompts.ts` must update the baseline file and the reviewer compares old vs new F1 (both strict and semantic when present).
 
 CI integration is deferred to a follow-up — the eval costs money per run so it should only fire on prompt-changing PRs and a weekly cron, not on every push. Track in the open work list.
 

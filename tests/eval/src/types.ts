@@ -22,7 +22,8 @@ export type CorpusSample = {
  * Ground-truth specification for a single expected extraction. The matcher
  * scores TP if SOME extracted memory has the same `kind`, contains every
  * `mustInclude` keyword (case-insensitive substring), and contains none of
- * the `mustNotInclude` anti-patterns.
+ * the `mustNotInclude` anti-patterns (strict matcher) or is judged
+ * semantically equivalent by the LLM-as-judge (semantic matcher, ADR 0014).
  *
  * Picking `mustInclude` keywords is a craft: prefer broad stems ("allerg"
  * rather than "allergic") so legitimate phrasing variation still scores TP.
@@ -38,30 +39,45 @@ export type ExpectedMemory = {
 }
 
 /**
+ * Per-matcher score block (ADR 0014). Each sample is scored by the strict
+ * keyword matcher; optionally also by the LLM-as-judge.
+ */
+export type ScoreBlock = {
+  tp: number
+  fp: number
+  fn: number
+  /** Indices into `expected[]` that found a match under this matcher. */
+  matchedExpected: number[]
+  /** Indices into `extracted[]` that found a match under this matcher. */
+  matchedExtracted: number[]
+}
+
+/**
  * Result of matching one sample's extracted memories against expectations.
+ * `strict` is always present (keyword matcher is free + deterministic);
+ * `semantic` is present only when `--judge` was passed.
  */
 export type SampleResult = {
   sampleId: string
   category: string
   /** Memories the distiller produced for this sample. */
   extracted: ExtractedMemory[]
-  /** Indices into `expected[]` that matched some extracted memory. */
-  matchedExpected: number[]
-  /** Indices into `extracted[]` that matched some expected memory. */
-  matchedExtracted: number[]
-  /** TP, FP, FN counts after greedy assignment. */
-  tp: number
-  fp: number
-  fn: number
-  /** Token usage + cost for this sample's distillation call. */
+  /** Strict keyword-matcher scores. Always present. */
+  strict: ScoreBlock
+  /** Semantic LLM-judge scores. Present only when --judge was enabled. */
+  semantic?: ScoreBlock
+  /** Distillation cost for this sample (one Anthropic call). */
   costUsdEstimate: number
+  /** Per-sample judge cost (sum of all pair-judge calls). 0 when no judge. */
+  judgeCostUsdEstimate?: number
+  /** Wall-clock duration including distillation + matching. */
   durationMs: number
-  /** Any per-sample error encountered. Sample-level failures don't abort the whole run. */
+  /** Any per-sample error encountered. Sample-level failures don't abort the run. */
   error?: string
 }
 
 /**
- * Aggregated result over the whole corpus (or a sliced subset, like by category).
+ * Aggregated result over the whole corpus (or a sliced subset like by category).
  */
 export type AggregateMetrics = {
   /** Number of samples included in this aggregate. */
@@ -99,12 +115,22 @@ export type EvalReport = {
   distillerName: string
   /** Total wall-clock ms. */
   durationMs: number
-  /** Sum of per-sample cost estimates. */
+  /** Sum of per-sample distillation cost estimates. */
   totalCostUsdEstimate: number
   /** All per-sample results, in the order they were run. */
   samples: SampleResult[]
-  /** Aggregated metrics over the full corpus. */
-  overall: AggregateMetrics
-  /** Per-category aggregates for sliced analysis. */
-  byCategory: Record<string, AggregateMetrics>
+  /** Aggregated STRICT metrics over the full corpus. Always present. */
+  strict: AggregateMetrics
+  /** Aggregated SEMANTIC metrics. Present only when judge was enabled. */
+  semantic?: AggregateMetrics
+  /** Per-category strict aggregates. */
+  strictByCategory: Record<string, AggregateMetrics>
+  /** Per-category semantic aggregates. Present only when judge was enabled. */
+  semanticByCategory?: Record<string, AggregateMetrics>
+  /** Judge metadata. Present only when judge was enabled. */
+  judge?: {
+    name: string
+    model: string
+    totalCostUsdEstimate: number
+  }
 }

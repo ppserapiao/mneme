@@ -55,14 +55,14 @@ describe('runEval — aggregate metrics', () => {
     })
 
     const report = await runEval({ corpus: c, distiller, concurrency: 1 })
-    expect(report.overall.tp).toBe(1)
-    expect(report.overall.fp).toBe(0)
-    expect(report.overall.fn).toBe(1)
-    expect(report.overall.precision).toBeCloseTo(1, 5)
-    expect(report.overall.recall).toBeCloseTo(0.5, 5)
-    expect(report.overall.f1).toBeCloseTo(0.6667, 4)
-    expect(report.overall.expectedTotal).toBe(2)
-    expect(report.overall.extractedTotal).toBe(1)
+    expect(report.strict.tp).toBe(1)
+    expect(report.strict.fp).toBe(0)
+    expect(report.strict.fn).toBe(1)
+    expect(report.strict.precision).toBeCloseTo(1, 5)
+    expect(report.strict.recall).toBeCloseTo(0.5, 5)
+    expect(report.strict.f1).toBeCloseTo(0.6667, 4)
+    expect(report.strict.expectedTotal).toBe(2)
+    expect(report.strict.extractedTotal).toBe(1)
   })
 
   test('breaks down metrics by category', async () => {
@@ -84,10 +84,10 @@ describe('runEval — aggregate metrics', () => {
     })
 
     const report = await runEval({ corpus: c, distiller, concurrency: 1 })
-    expect(report.byCategory['cat-A']?.precision).toBeCloseTo(1, 5)
-    expect(report.byCategory['cat-A']?.recall).toBeCloseTo(1, 5)
-    expect(report.byCategory['cat-B']?.recall).toBe(0)
-    expect(report.byCategory['cat-B']?.fn).toBe(1)
+    expect(report.strictByCategory['cat-A']?.precision).toBeCloseTo(1, 5)
+    expect(report.strictByCategory['cat-A']?.recall).toBeCloseTo(1, 5)
+    expect(report.strictByCategory['cat-B']?.recall).toBe(0)
+    expect(report.strictByCategory['cat-B']?.fn).toBe(1)
   })
 })
 
@@ -112,11 +112,11 @@ describe('runEval — failure isolation', () => {
     }
     const report = await runEval({ corpus: c, distiller, concurrency: 1 })
     expect(report.samples).toHaveLength(3)
-    expect(report.samples[0]?.tp).toBe(0) // body 'A' doesn't contain 'x' — keyword mismatch
+    expect(report.samples[0]?.strict.tp).toBe(0) // body 'A' doesn't contain 'x' — keyword mismatch
     expect(report.samples[1]?.error).toContain('upstream broke')
-    expect(report.samples[2]?.tp).toBe(0)
+    expect(report.samples[2]?.strict.tp).toBe(0)
     // The whole run still completed
-    expect(report.overall.sampleCount).toBe(3)
+    expect(report.strict.sampleCount).toBe(3)
   })
 })
 
