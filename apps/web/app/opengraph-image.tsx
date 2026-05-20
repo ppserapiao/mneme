@@ -57,9 +57,9 @@ export default async function OG() {
         fontFamily: 'Instrument Serif',
       }}
     >
-      {/* Inverse mark (paper bars on dark) */}
+      {/* Inverse mark (paper bars on dark). No <title> child — Satori renders
+         it as visible text. aria-label provides the same a11y info. */}
       <svg width={64} height={64} viewBox="0 0 512 512" role="img" aria-label="mneme mark">
-        <title>mneme</title>
         <rect x={96} y={336} width={320} height={72} rx={16} fill="#F2ECE0" />
         <rect x={128} y={232} width={256} height={72} rx={16} fill="#F2ECE0" />
         <rect x={168} y={128} width={176} height={72} rx={16} fill="#E0651D" />
