@@ -19,6 +19,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { ClaudeDistiller, PROMPT_VERSION } from '@mnemehq/distiller-claude'
 import type { DistillInput, DistillOutput, Distiller } from '@mnemehq/sdk'
+import { Mem0Distiller } from './competitors/mem0'
 import { loadCorpus } from './corpus'
 import { ClaudeJudgeMatcher } from './judge'
 import type { Matcher } from './matcher'
@@ -37,6 +38,12 @@ type Args = {
   judge?: 'claude'
   /** Judge model override. Default: `claude-haiku-4-5` (ADR 0014 §3). */
   judgeModel?: string
+  /**
+   * Distiller to evaluate. Default: `claude` (mneme's own ClaudeDistiller).
+   * `mem0` runs the corpus through Mem0 (ADR 0015 — comparative eval).
+   * Future: `letta`, `zep`, `openai-memory`, etc.
+   */
+  distiller?: 'claude' | 'mem0'
 }
 
 function parseArgs(argv: string[]): Args {
@@ -76,6 +83,20 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--concurrency') {
       const v = argv[++i]
       if (v !== undefined) out.concurrency = Number(v)
+    } else if (a?.startsWith('--distiller=')) {
+      const v = a.slice('--distiller='.length)
+      if (v === 'claude' || v === 'mem0') out.distiller = v
+      else {
+        process.stderr.write(`[eval] unknown --distiller value: ${v} (supported: claude, mem0)\n`)
+        process.exit(2)
+      }
+    } else if (a === '--distiller') {
+      const v = argv[++i]
+      if (v === 'claude' || v === 'mem0') out.distiller = v
+      else {
+        process.stderr.write(`[eval] unknown --distiller value: ${v} (supported: claude, mem0)\n`)
+        process.exit(2)
+      }
     }
   }
   return out
@@ -108,19 +129,56 @@ function mockDistiller(): Distiller & { promptVersion: string } {
 }
 
 function liveDistiller(args: Args): Distiller {
+  const which = args.distiller ?? 'claude'
+  if (which === 'claude') return liveClaudeDistiller(args)
+  if (which === 'mem0') return liveMem0Distiller(args)
+  throw new Error(`unsupported distiller ${which}`)
+}
+
+function liveClaudeDistiller(args: Args): Distiller {
   const apiKey = process.env['ANTHROPIC_API_KEY']
   if (!apiKey || apiKey.trim().length === 0) {
     process.stderr.write(
-      '[eval] --live requires ANTHROPIC_API_KEY in env. Set it in your terminal:\n' +
-        "         export ANTHROPIC_API_KEY='sk-ant-...'\n" +
-        '       then re-run `bun run eval --live` from that terminal.\n',
+      '[eval] --live requires ANTHROPIC_API_KEY in env. Set in your terminal:\n' +
+        "         export ANTHROPIC_API_KEY='sk-ant-...'\n",
     )
     process.exit(2)
   }
-  return new ClaudeDistiller({
+  const d = new ClaudeDistiller({
     apiKey,
     ...(args.model ? { model: args.model } : {}),
   }) as Distiller & { promptVersion?: string }
+  Object.assign(d, { promptVersion: PROMPT_VERSION })
+  return d
+}
+
+function liveMem0Distiller(args: Args): Distiller {
+  const anthropicApiKey = process.env['ANTHROPIC_API_KEY']
+  const openaiApiKey = process.env['OPENAI_API_KEY']
+  if (!anthropicApiKey || anthropicApiKey.trim().length === 0) {
+    process.stderr.write(
+      '[eval] --distiller=mem0 requires ANTHROPIC_API_KEY (Mem0 uses Anthropic as the LLM per ADR 0015).\n',
+    )
+    process.exit(2)
+  }
+  if (!openaiApiKey || openaiApiKey.trim().length === 0) {
+    process.stderr.write(
+      '[eval] --distiller=mem0 requires OPENAI_API_KEY (Mem0 uses OpenAI embeddings per ADR 0015).\n' +
+        "       In your terminal: export OPENAI_API_KEY='sk-...'\n" +
+        '       Anthropic does not ship an embeddings API; this is a Mem0 constraint, not a mneme one.\n',
+    )
+    process.exit(2)
+  }
+  process.stdout.write(
+    '[eval] NOTE: Mem0 will make Anthropic + OpenAI calls under your keys.\n' +
+      '       Expect ~$0.30 Anthropic + ~$0.05 OpenAI per 100-sample run.\n' +
+      '       Monitor your dashboards. Per-call cost is NOT tracked inside Mem0 (v0.2 target, ADR 0015 §5).\n',
+  )
+  return new Mem0Distiller({
+    anthropicApiKey,
+    openaiApiKey,
+    ...(args.model ? { llmModel: args.model } : {}),
+  })
 }
 
 function liveJudge(args: Args): Matcher {
@@ -144,10 +202,10 @@ async function main(): Promise<void> {
 
   let distiller: Distiller
   if (args.live) {
-    distiller = liveDistiller(args)
-    Object.assign(distiller, { promptVersion: PROMPT_VERSION })
+    distiller = liveDistiller(args) // already sets promptVersion per distiller
+    const whichDistiller = args.distiller ?? 'claude'
     process.stdout.write(
-      `[eval] live mode — model=${distiller.model} maxCostUsd=$${args.maxCostUsd} concurrency=${args.concurrency}\n`,
+      `[eval] live mode — distiller=${whichDistiller} model=${distiller.model} maxCostUsd=$${args.maxCostUsd} concurrency=${args.concurrency}\n`,
     )
   } else {
     distiller = mockDistiller()

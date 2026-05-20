@@ -158,11 +158,16 @@ If a check fails, fix the root cause. Do not skip hooks or disable the check.
 `bun run eval` exercises the distiller against a curated 30-sample corpus under `tests/eval/corpus/` (6 categories: personal-chat, journal, slack, meeting-notes, edge-cases, domain-specific) and reports precision / recall / F1 per category and overall. **This is the artefact that turns "the distiller works" into "the distiller scores X on the canonical corpus"** — see ADR 0013 for full methodology.
 
 ```sh
-bun run eval                              # mock mode — free, deterministic, ~50ms
-bun run eval:live                         # real Anthropic distillation, strict scoring only
-bun run eval:live -- --judge=claude       # real Anthropic + LLM-as-judge semantic scoring (ADR 0014)
-bun run eval:baseline                     # real Anthropic + writes the markdown baseline (no judge)
-bun run eval:baseline -- --judge=claude   # real Anthropic + judge + writes baseline with both numbers
+# mneme's own distiller
+bun run eval                                                  # mock mode — free, deterministic, ~50ms
+bun run eval:live                                             # real Anthropic distillation, strict scoring only
+bun run eval:live -- --judge=claude                           # real Anthropic + LLM-as-judge semantic scoring (ADR 0014)
+bun run eval:baseline                                         # real Anthropic + writes the markdown baseline (no judge)
+bun run eval:baseline -- --judge=claude                       # real Anthropic + judge + writes baseline with both numbers
+
+# Competitor systems (ADR 0015) — same corpus, same scoring, defensible methodology
+bun run eval:baseline -- --distiller=mem0 --judge=claude      # Mem0 with both strict + semantic
+                                                              # (needs ANTHROPIC_API_KEY + OPENAI_API_KEY in env)
 ```
 
 **Never paste the API key into chat.** Set it in your own terminal: `export ANTHROPIC_API_KEY='sk-ant-...'`, then run from that terminal. The key never needs to leave your shell.
