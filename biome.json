@@ -12,6 +12,8 @@
       "**/coverage",
       "**/*.tsbuildinfo",
       "**/bun.lockb",
+      "**/.next",
+      "**/next-env.d.ts",
       "tests/eval/reports/**"
     ]
   },

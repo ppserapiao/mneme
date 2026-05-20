@@ -41,7 +41,7 @@ What this shows: at the content level mneme and Mem0 are effectively tied — bo
 
 This is why "tied on semantic, ahead on strict" is the story we want — not "we beat Mem0 by N points." Mem0 can keep improving on semantic accuracy and we will too, but **the trust layer — faithful extraction, encryption at rest, user-held keys, portable across models — is structural to how mneme is built and isn't a parameter the alternative architectures can tune.**
 
-Methodology: dual-matcher evaluation in [ADR 0014](./decisions/0014-dual-matcher-evaluation.md); comparative-eval architecture in [ADR 0015](./decisions/0015-comparative-eval.md). Reproduce locally:
+Methodology: dual-matcher evaluation in [ADR 0014](./decisions/0014-eval-judge-mode.md); comparative-eval architecture in [ADR 0015](./decisions/0015-comparative-eval.md). Reproduce locally:
 
 ```sh
 # Requires Docker (Qdrant) + ANTHROPIC_API_KEY + OPENAI_API_KEY
