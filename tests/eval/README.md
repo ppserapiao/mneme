@@ -21,6 +21,26 @@ bun run eval:live
 
 Cost ceiling defaults to **$5** per run. Sonnet-with-prompt-caching pays roughly £0.30-£0.60 for the full 30-sample corpus.
 
+### Comparative eval (vs Mem0, ADR 0015)
+
+To run the same corpus through a competitor system:
+
+```sh
+# 1. Start Qdrant (Mem0's production vector store — required because Mem0's
+#    in-memory default uses better-sqlite3 which Bun does not support)
+docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
+curl -s http://localhost:6333/readyz   # expect: ready
+
+# 2. Export both keys (Mem0 = Anthropic LLM + OpenAI embeddings)
+export ANTHROPIC_API_KEY='sk-ant-...'
+export OPENAI_API_KEY='sk-...'
+
+# 3. Run
+bun run eval:live -- --distiller=mem0 --judge=claude
+```
+
+The CLI runs a Qdrant preflight before any LLM call, so a missing Docker container costs $0. Override the Qdrant URL with `QDRANT_URL=http://host:port` if needed.
+
 ## Layout
 
 ```

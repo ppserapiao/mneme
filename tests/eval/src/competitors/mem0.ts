@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DistillInput, DistillOutput, Distiller, ExtractedMemory } from '@mnemehq/sdk'
+import { QdrantClient } from '@qdrant/js-client-rest'
 import { Memory as Mem0Memory, type MemoryConfig, type MemoryItem } from 'mem0ai/oss'
 
 /**
@@ -8,17 +9,23 @@ import { Memory as Mem0Memory, type MemoryConfig, type MemoryItem } from 'mem0ai
  * Mem0 the same way it scores mneme — same corpus, same matchers,
  * same judge.
  *
- * Configuration (per ADR 0015 §2 — Mem0's default-recommended settings):
+ * Configuration (per ADR 0015 §2 — Mem0's production-recommended settings):
  *   - LLM:          claude-sonnet-4-6 via AnthropicLLM (same model as mneme — fairest)
- *   - Embedder:     OpenAI text-embedding-3-small (Mem0's default; OpenAI is the only
- *                   embedding provider that fits "zero local setup" + "no Google deps")
- *   - Vector store: MemoryVectorStore (in-memory; no Qdrant / pgvector required)
+ *   - Embedder:     OpenAI text-embedding-3-small (1536-dim; Mem0's default)
+ *   - Vector store: Qdrant (Mem0's production-recommended store; localhost:6333)
  *   - History:      disabled (per-sample isolation makes history irrelevant)
  *   - infer:        true (the default; without this Mem0 doesn't extract at all)
  *
+ * Why Qdrant and not `MemoryVectorStore`? Mem0's in-memory store uses
+ * `better-sqlite3` for the history table. `better-sqlite3` is a native
+ * Node module that Bun does not yet support (oven-sh/bun#4290), so the
+ * in-memory store crashes under Bun before any LLM call goes out. Qdrant
+ * is what Mem0's own docs recommend for production anyway, so this is
+ * methodologically stronger, not weaker — see ADR 0015 §2.
+ *
  * Per-sample isolation: a fresh UUID `user_id` per sample. Memories don't
- * leak across samples. The Mem0 instance is reused for prompt-cache benefits
- * but the entity-store is partitioned by user_id.
+ * leak across samples. The collectionName is also fresh per Distiller
+ * instance (timestamped) so consecutive runs never share state in Qdrant.
  *
  * Kind mapping (ADR 0015 §4): every Mem0 memory is assigned kind `'fact'`.
  * Mem0 doesn't classify by kind; defaulting to 'fact' is the documented
@@ -47,8 +54,12 @@ export type Mem0DistillerOptions = {
    */
   embedderModel?: string
   /**
-   * Override the Memory instance entirely (for tests). When set, the apiKey
-   * / model options above are ignored.
+   * Qdrant URL. Default: http://localhost:6333 (matches `docker run -p 6333:6333 qdrant/qdrant`).
+   */
+  qdrantUrl?: string
+  /**
+   * Override the Memory instance entirely (for tests). When set, the
+   * apiKey / model / qdrantUrl options above are ignored.
    */
   memory?: Mem0Memory
   /**
@@ -65,6 +76,31 @@ export type Mem0Event =
 
 /** Mem0 OSS package version this adapter is targeting. Surfaces in baseline filenames. */
 export const MEM0_TARGET_VERSION = '3.0.3'
+
+/** Embedding dimension for OpenAI text-embedding-3-small (Mem0's default embedder). */
+const TEXT_EMBEDDING_3_SMALL_DIMS = 1536
+
+/**
+ * Probe a running Qdrant instance. Returns true if `/readyz` returns 2xx
+ * within the timeout, false otherwise. Used by the preflight to fail fast
+ * before any LLM call when Docker isn't running.
+ */
+export async function qdrantReachable(url: string, timeoutMs = 1500): Promise<boolean> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    // Qdrant's readiness endpoint is /readyz; healthz exists too but readyz
+    // is the canonical "accepting traffic" probe. Both 2xx mean we can proceed.
+    const res = await fetch(`${url.replace(/\/+$/, '')}/readyz`, {
+      signal: controller.signal,
+    })
+    return res.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /**
  * @see ADR 0015 for the methodology, fair-config choices, and limitations.
@@ -104,6 +140,14 @@ export class Mem0Distiller implements Distiller {
       )
     }
 
+    const qdrantUrl = options.qdrantUrl ?? 'http://localhost:6333'
+    // Fresh collection name per instance so consecutive runs never share state.
+    // Format: mneme-eval-mem0-<unix-ms>-<short-rand>; safe Qdrant identifier.
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const collectionName = `mneme-eval-mem0-${stamp}`
+
+    const client = new QdrantClient({ url: qdrantUrl })
+
     const config: Partial<MemoryConfig> = {
       llm: {
         provider: 'anthropic',
@@ -120,9 +164,11 @@ export class Mem0Distiller implements Distiller {
         },
       },
       vectorStore: {
-        provider: 'memory',
+        provider: 'qdrant',
         config: {
-          collectionName: 'mneme-eval-mem0',
+          client,
+          collectionName,
+          embeddingModelDims: TEXT_EMBEDDING_3_SMALL_DIMS,
         },
       },
       disableHistory: true,
