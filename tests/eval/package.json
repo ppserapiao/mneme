@@ -1,0 +1,27 @@
+{
+  "name": "@mnemehq/eval",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Distiller extraction-quality eval harness for the mneme Protocol (ADR 0013). Curated corpus + matcher + reporter; runs against any Distiller. Not published.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "eval": "bun run src/cli.ts"
+  },
+  "dependencies": {
+    "@mnemehq/distiller-claude": "workspace:*",
+    "@mnemehq/protocol": "workspace:*",
+    "@mnemehq/sdk": "workspace:*"
+  }
+}

@@ -153,6 +153,24 @@ bun run --filter '*' dev    # runs `tsdown --watch` in every package
 
 If a check fails, fix the root cause. Do not skip hooks or disable the check.
 
+### Eval harness (distiller extraction quality)
+
+`bun run eval` exercises the distiller against a curated 30-sample corpus under `tests/eval/corpus/` (6 categories: personal-chat, journal, slack, meeting-notes, edge-cases, domain-specific) and reports precision / recall / F1 per category and overall. **This is the artefact that turns "the distiller works" into "the distiller scores X on the canonical corpus"** — see ADR 0013 for full methodology.
+
+```sh
+bun run eval                # mock mode — free, deterministic, ~50ms
+bun run eval:live           # real Anthropic call — needs ANTHROPIC_API_KEY exported
+bun run eval:baseline       # real Anthropic + writes the markdown baseline
+```
+
+**Never paste the API key into chat.** Set it in your own terminal: `export ANTHROPIC_API_KEY='sk-ant-...'`, then run from that terminal. The key never needs to leave your shell.
+
+Costs ~£0.30-£0.60 per `--live` run cache-warm against Sonnet. Hard cap defaults to $5 per run via `--max-cost-usd N`.
+
+Each run writes a structured JSON report to `tests/eval/reports/` (gitignored). `--write-baseline` additionally writes the markdown to `tests/eval/baselines/<promptVersion>__<model>.md`, which IS committed. PRs that change `packages/distiller-claude/src/prompts.ts` must update the baseline file and the reviewer compares old vs new F1.
+
+CI integration is deferred to a follow-up — the eval costs money per run so it should only fire on prompt-changing PRs and a weekly cron, not on every push. Track in the open work list.
+
 ### Smoke test (verifies the published packages end-to-end)
 
 `bun run smoke` is the single command that proves mneme works as a system from a consumer's perspective. It is the gap-closer between "118 unit tests pass" and "a stranger can `bun add @mnemehq/sdk` and have it work."

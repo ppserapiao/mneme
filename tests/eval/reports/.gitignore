@@ -1,0 +1,5 @@
+# Per-run JSON reports — keep the directory tracked in git but ignore
+# the run outputs. Each `bun run eval` writes one of these; they're for
+# local inspection + future CI regression-diffing, not for committing.
+*.json
+!.gitignore

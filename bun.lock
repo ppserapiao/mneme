@@ -82,6 +82,15 @@
         "@scure/bip39": "^2.2.0",
       },
     },
+    "tests/eval": {
+      "name": "@mnemehq/eval",
+      "version": "0.0.1",
+      "dependencies": {
+        "@mnemehq/distiller-claude": "workspace:*",
+        "@mnemehq/protocol": "workspace:*",
+        "@mnemehq/sdk": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@andrewbranch/untar.js": ["@andrewbranch/untar.js@1.0.3", "", {}, "sha512-Jh15/qVmrLGhkKJBdXlK1+9tY4lZruYjsgkDFj08ZmDiWVBLJcqkok7Z0/R0In+i1rScBpJlSvrTS2Lm41Pbnw=="],
@@ -199,6 +208,8 @@
     "@mnemehq/distiller-claude": ["@mnemehq/distiller-claude@workspace:packages/distiller-claude"],
 
     "@mnemehq/embedder-local": ["@mnemehq/embedder-local@workspace:packages/embedder-local"],
+
+    "@mnemehq/eval": ["@mnemehq/eval@workspace:tests/eval"],
 
     "@mnemehq/mcp-server": ["@mnemehq/mcp-server@workspace:apps/mcp-server"],
 
