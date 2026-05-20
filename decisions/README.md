@@ -41,3 +41,4 @@ Briefly, with the reason each was rejected.
 | 0010  | [WebSocket transport for sync and pairing](./0010-websocket-transport.md) | Accepted |
 | 0011  | [npm publishing strategy](./0011-npm-publishing.md) | Accepted |
 | 0012  | [Distiller architecture (LLM-powered memory extraction)](./0012-distiller-architecture.md) | Accepted |
+| 0013  | [Eval harness for distiller extraction quality](./0013-eval-harness.md) | Accepted |

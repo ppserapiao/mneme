@@ -13,7 +13,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "smoke": "bun run scripts/smoke-test.ts"
+    "smoke": "bun run scripts/smoke-test.ts",
+    "eval": "bun run --filter '@mnemehq/eval' eval --",
+    "eval:live": "bun run --filter '@mnemehq/eval' eval -- --live",
+    "eval:baseline": "bun run --filter '@mnemehq/eval' eval -- --live --write-baseline"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
