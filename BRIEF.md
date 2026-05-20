@@ -100,7 +100,7 @@ A real acquisition story exists for Mneme because the strategic value of *neutra
 
 | Risk | Mitigation |
 |---|---|
-| Mem0 has raised real money and developer mindshare | Our differentiation is structural, not feature-level — they cannot pivot to local-first without breaking their business model |
+| Mem0 has raised real money and developer mindshare | Our differentiation is structural, not feature-level — they cannot pivot to local-first without breaking their business model. The first [public benchmark](./README.md#how-mneme-compares-on-quality) confirms the structural framing: mneme and Mem0 tie on semantic accuracy (~78% F1 both), but mneme wins by 53.9 points on strict keyword match because Mem0 paraphrases inputs into its own canonical form while we preserve the source. Faithfulness is a property of how we extract — not a parameter Mem0 can tune without rebuilding. |
 | Apple ships personal memory in iOS first | Even if they do, it'll be Apple-only — we win the cross-platform layer |
 | Local-first encrypted retrieval is technically hard | We start with a hybrid model (encrypted blobs + server vectors with controlled leakage) and evolve to full E2E |
 | Consumer adoption is slow | The developer + MCP wedge funds us while consumer compounds |
