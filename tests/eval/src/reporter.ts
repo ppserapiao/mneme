@@ -227,15 +227,28 @@ export function diff(before: EvalReport, after: EvalReport): string {
   return `${lines.join('\n')}\n`
 }
 
+/**
+ * Naming convention: `<promptVersion>__<model>__<distillerName>.{md,json}`
+ * — the distiller segment keeps Mem0 / Letta / Zep / etc. from clobbering
+ * mneme's baseline (ADR 0015 §6).
+ */
 export function reportPaths(
   report: EvalReport,
   rootDir: string,
 ): { jsonReport: string; markdownReport: string } {
   const stamp = report.startedAt.replace(/[:.]/g, '-')
-  const slug = `${stamp}__${report.promptVersion}__${report.model}`.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const slug =
+    `${stamp}__${report.promptVersion}__${report.model}__${report.distillerName}`.replace(
+      /[^a-zA-Z0-9._-]/g,
+      '_',
+    )
   return {
     jsonReport: `${rootDir}/reports/${slug}.json`,
-    markdownReport: `${rootDir}/baselines/${report.promptVersion}__${report.model}.md`,
+    markdownReport:
+      `${rootDir}/baselines/${report.promptVersion}__${report.model}__${report.distillerName}.md`.replace(
+        /[^a-zA-Z0-9._/-]/g,
+        '_',
+      ),
   }
 }
 

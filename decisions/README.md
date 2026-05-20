@@ -43,3 +43,4 @@ Briefly, with the reason each was rejected.
 | 0012  | [Distiller architecture (LLM-powered memory extraction)](./0012-distiller-architecture.md) | Accepted |
 | 0013  | [Eval harness for distiller extraction quality](./0013-eval-harness.md) | Accepted |
 | 0014  | [Dual-matcher eval (keyword + LLM-as-judge)](./0014-eval-judge-mode.md) | Accepted |
+| 0015  | [Comparative eval — scoring competitor systems against our corpus](./0015-comparative-eval.md) | Accepted |
