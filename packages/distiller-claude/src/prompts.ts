@@ -31,9 +31,22 @@
  *                     input (recovers v2026-05-20b's lost recall on edge-005)
  *                 (g) new dense/abbreviated slack-style few-shot (different
  *                     texture from the structured pedro/sarah multi-voice one)
+ *                 F1=67.2% (+1.1pp over v2). edge-cases recovered to 80% ✓
+ *                 meeting-notes +9pp, personal-chat +5.7pp. Regressions:
+ *                 slack 46.2% → 20.0% (the dense standup few-shot perturbed
+ *                 how the model interprets slack inputs), domain-specific
+ *                 72.0% → 62.1% (collateral from the additional few-shots).
+ *   2026-05-20d — Phase 1.6: surgical revert.
+ *                 KEEP (e) and (f) — confirmed wins.
+ *                 REMOVE (g) — likely cause of slack's collapse. Hypothesis:
+ *                 with two slack-shaped few-shots competing for attention,
+ *                 the model started expecting slack inputs to be dense
+ *                 structured standups and under-extracted from simpler
+ *                 slack patterns (Friday-off preference, oncall context).
+ *                 Net change vs v2: only the v3 wins survive.
  */
 
-export const PROMPT_VERSION = '2026-05-20c'
+export const PROMPT_VERSION = '2026-05-20d'
 
 /**
  * The kinds we extract. Aligned to `MemoryKindSchema` from `@mnemehq/protocol`:
@@ -107,13 +120,16 @@ CALL THE TOOL. Do not respond with prose.`
  * sees real input → expected tool call mappings. Marked cacheable by the
  * adapter on every request.
  *
- * Seven examples covering: single-author preference update, single-author
+ * Six examples covering: single-author preference update, single-author
  * relationship statement, single-author skill/context, MULTI-VOICE SLACK-
  * STYLE THREAD (added in 2026-05-20b — targets slack), TECHNICAL STACK
- * extraction (added in 2026-05-20b — targets domain-specific), EXPLICIT
- * REPETITION (added in 2026-05-20c — recovers edge-cases regression), and
- * DENSE ABBREVIATED STANDUP (added in 2026-05-20c — pushes slack harder
- * with a different texture from the structured multi-voice example).
+ * extraction (added in 2026-05-20b — targets domain-specific), and
+ * EXPLICIT REPETITION (added in 2026-05-20c — recovers edge-cases regression).
+ *
+ * The "dense abbreviated standup" example added in 2026-05-20c was removed
+ * in 2026-05-20d after measurement showed it collapsed slack F1 from
+ * 46.2% to 20.0% — two slack-shaped few-shots competed for attention and
+ * narrowed the model's expectation of slack inputs unhelpfully.
  */
 export const FEW_SHOT_EXAMPLES = [
   {
@@ -233,35 +249,6 @@ export const FEW_SHOT_EXAMPLES = [
         body: 'Works in product',
         confidence: 0.95,
         sourceContext: 'I work in product',
-      },
-    ],
-  },
-  {
-    user: 'Speaker: pedro\n\nstandup yest — closed 3 tickets, paired w/ karim on auth refactor, deployed staging. today — finishing migration, design review at 3. blockers — none.',
-    extracted: [
-      {
-        kind: 'event',
-        body: 'Closed three tickets yesterday',
-        confidence: 0.95,
-        sourceContext: 'closed 3 tickets',
-      },
-      {
-        kind: 'event',
-        body: 'Paired with Karim on the auth refactor yesterday',
-        confidence: 0.95,
-        sourceContext: 'paired w/ karim on auth refactor',
-      },
-      {
-        kind: 'context',
-        body: 'Finishing the migration today; design review at 3pm',
-        confidence: 0.9,
-        sourceContext: 'finishing migration, design review at 3',
-      },
-      {
-        kind: 'relationship',
-        body: 'Karim is a pairing collaborator on the auth refactor',
-        confidence: 0.85,
-        sourceContext: 'paired w/ karim',
       },
     ],
   },
