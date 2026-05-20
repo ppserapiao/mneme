@@ -19,7 +19,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { ClaudeDistiller, PROMPT_VERSION } from '@mnemehq/distiller-claude'
 import type { DistillInput, DistillOutput, Distiller } from '@mnemehq/sdk'
-import { Mem0Distiller } from './competitors/mem0'
+import { Mem0Distiller, qdrantReachable } from './competitors/mem0'
 import { loadCorpus } from './corpus'
 import { ClaudeJudgeMatcher } from './judge'
 import type { Matcher } from './matcher'
@@ -128,10 +128,10 @@ function mockDistiller(): Distiller & { promptVersion: string } {
   }
 }
 
-function liveDistiller(args: Args): Distiller {
+async function liveDistiller(args: Args): Promise<Distiller> {
   const which = args.distiller ?? 'claude'
   if (which === 'claude') return liveClaudeDistiller(args)
-  if (which === 'mem0') return liveMem0Distiller(args)
+  if (which === 'mem0') return await liveMem0Distiller(args)
   throw new Error(`unsupported distiller ${which}`)
 }
 
@@ -152,9 +152,10 @@ function liveClaudeDistiller(args: Args): Distiller {
   return d
 }
 
-function liveMem0Distiller(args: Args): Distiller {
+async function liveMem0Distiller(args: Args): Promise<Distiller> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY']
   const openaiApiKey = process.env['OPENAI_API_KEY']
+  const qdrantUrl = process.env['QDRANT_URL'] ?? 'http://localhost:6333'
   if (!anthropicApiKey || anthropicApiKey.trim().length === 0) {
     process.stderr.write(
       '[eval] --distiller=mem0 requires ANTHROPIC_API_KEY (Mem0 uses Anthropic as the LLM per ADR 0015).\n',
@@ -169,6 +170,27 @@ function liveMem0Distiller(args: Args): Distiller {
     )
     process.exit(2)
   }
+
+  // Preflight: Mem0's Qdrant backend must be reachable before we make any LLM
+  // call. Otherwise the first sample burns Anthropic + OpenAI tokens just to
+  // hit a connection error on write-back. Fail-fast saves the budget.
+  process.stdout.write(`[eval] preflight: probing Qdrant at ${qdrantUrl} ...\n`)
+  const ok = await qdrantReachable(qdrantUrl)
+  if (!ok) {
+    process.stderr.write(
+      `[eval] Qdrant is not reachable at ${qdrantUrl}.
+       Start it with:
+         docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
+       Then verify:
+         curl -s http://localhost:6333/readyz   # expect: ready
+       Or set QDRANT_URL='http://host:port' if you're running it elsewhere.
+       (Why Qdrant? Mem0+Bun is incompatible with Mem0's in-memory store; see ADR 0015.)
+`,
+    )
+    process.exit(2)
+  }
+  process.stdout.write('[eval] preflight: Qdrant ready\n')
+
   process.stdout.write(
     '[eval] NOTE: Mem0 will make Anthropic + OpenAI calls under your keys.\n' +
       '       Expect ~$0.30 Anthropic + ~$0.05 OpenAI per 100-sample run.\n' +
@@ -177,6 +199,7 @@ function liveMem0Distiller(args: Args): Distiller {
   return new Mem0Distiller({
     anthropicApiKey,
     openaiApiKey,
+    qdrantUrl,
     ...(args.model ? { llmModel: args.model } : {}),
   })
 }
@@ -202,7 +225,7 @@ async function main(): Promise<void> {
 
   let distiller: Distiller
   if (args.live) {
-    distiller = liveDistiller(args) // already sets promptVersion per distiller
+    distiller = await liveDistiller(args) // already sets promptVersion per distiller
     const whichDistiller = args.distiller ?? 'claude'
     process.stdout.write(
       `[eval] live mode — distiller=${whichDistiller} model=${distiller.model} maxCostUsd=$${args.maxCostUsd} concurrency=${args.concurrency}\n`,

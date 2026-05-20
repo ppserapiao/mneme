@@ -47,7 +47,7 @@ The temptation with comparative evals is to tune the competitor to make them loo
 For Mem0 specifically:
 - **LLM**: `claude-sonnet-4-6` via `AnthropicLLM`. Same model mneme's distiller uses. Mem0's own quickstart suggests "use any supported provider"; picking the same model as mneme is the most-fair single choice.
 - **Embedder**: OpenAI `text-embedding-3-small`. Mem0's default. Anthropic doesn't ship an embeddings API so Anthropic-only is impossible.
-- **Vector store**: in-memory (`MemoryVectorStore`). Mem0's zero-setup default. No external Qdrant / pgvector required to reproduce.
+- **Vector store**: Qdrant (localhost via Docker — `docker run -p 6333:6333 qdrant/qdrant`). Mem0's docs recommend Qdrant as the production-grade store; we use it because (a) it's what Mem0 themselves recommend and (b) Mem0's "zero-setup" `MemoryVectorStore` depends on `better-sqlite3`, a native Node module that does not load under Bun (oven-sh/bun#4290), so it is unusable in this repo's runtime. The collection name is fresh per `Mem0Distiller` instance (`mneme-eval-mem0-<unix-ms>-<rand>`) so consecutive runs never share state.
 - **History**: disabled. Per-sample isolation makes history irrelevant.
 - **infer**: `true` (the default). Without this Mem0 doesn't do extraction at all; it just stores raw messages. Comparison requires extraction.
 
@@ -103,12 +103,21 @@ What the comparison does NOT claim:
 ### 8. Required environment for Mem0 runs
 
 ```sh
+# 1. Start Qdrant locally (Mem0's vector store — see §2)
+docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
+curl -s http://localhost:6333/readyz   # expect "ready"
+
+# 2. Export keys (in your terminal — never in chat)
 export ANTHROPIC_API_KEY='sk-ant-...'   # for Mem0's LLM AND our judge
 export OPENAI_API_KEY='sk-...'           # for Mem0's embedder
+
+# 3. Run
 bun run eval:live --judge=claude --distiller=mem0 --write-baseline
 ```
 
-Both keys must be set in the user's terminal (never in chat — see `feedback_never_paste_secrets_in_chat`). The Mem0 adapter fails fast with a clear error if either is missing.
+Optional: `QDRANT_URL=http://host:port` if Qdrant runs somewhere other than `localhost:6333`.
+
+The Mem0 adapter fails fast with a clear error if either key is missing OR if Qdrant is unreachable. The Qdrant preflight runs before any LLM call so a missing Docker container costs nothing.
 
 ## Consequences
 
@@ -125,6 +134,7 @@ Both keys must be set in the user's terminal (never in chat — see `feedback_ne
 - **Default-fact kind mapping under-counts Mem0 in strict scoring.** We mitigate by always reporting semantic alongside strict. If Mem0's strict number looks surprisingly low, that's a documented methodology artefact, not a Mem0 quality claim.
 - **Cost is not auto-tracked inside Mem0.** Users monitor their own Anthropic + OpenAI dashboards. Acceptable for v0.1; instrumented in v0.2.
 - **Comparative eval consumes more total Anthropic budget per run.** mneme distill: ~$0.45. Mem0 distill: ~$0.30 of Anthropic + $0.05 OpenAI. Judge: ~$1.80 for either. Running both side-by-side costs ~$3.10/run. Still under any reasonable cap.
+- **Docker is now a soft dependency for running Mem0 comparisons locally.** mneme itself has no Docker dependency. We document the one-command install for first-time runners and a preflight that fails fast (zero LLM spend) if Qdrant isn't reachable.
 
 ## Alternatives considered
 
@@ -133,6 +143,8 @@ Both keys must be set in the user's terminal (never in chat — see `feedback_ne
 - **LLM-classify Mem0 memories into one of our six kinds.** Considered. Deferred to v0.2 — adds cost + complexity, and the semantic judge already handles kind-tolerance reasonably well. Revisit if the strict-semantic gap on competitor evals proves consistently noisy.
 - **Run all three competitors (Mem0 + Letta + Zep) in this PR.** Considered. Rejected for scope: Letta is Python-first (would need a Python subprocess driver), Zep is a hosted service (needs account setup). One adapter per PR keeps each one focused, reviewable, and isolating any methodology mistakes to the affected competitor.
 - **Use a different judge model when scoring competitors** (so it's not "Claude judging Claude × Mem0"). Considered. Rejected for v0.1 — the judge's job is to assess semantic equivalence of bodies it sees in isolation; nothing in the prompt tells it which system produced which. The bias concern is real but small; if it becomes load-bearing in our pitch, v0.2 adds a non-Claude judge (Gemini or GPT-4o) for triangulation.
+- **Use Mem0's in-memory `MemoryVectorStore`** (the zero-setup default in Mem0's quickstart). Considered first. Rejected because Mem0's in-memory store depends on `better-sqlite3`, a native Node module Bun does not support (oven-sh/bun#4290). Every sample failed with `'better-sqlite3' is not yet supported in Bun.` Qdrant via Docker is Mem0's production-recommended store anyway — methodologically stronger, and the one-time `docker run` is the right tradeoff for a reproducible benchmark.
+- **Use Mem0's LangChain vector-store adapter with an in-memory LangChain store** (pure-JS, no native modules, no Docker). Considered as a Docker-free fallback. Rejected because (a) it pulls `langchain` + `@langchain/openai` as new deps the rest of mneme has no use for, (b) it puts a non-default Mem0 config in the comparison ("we wrapped Mem0 in LangChain to make it run") which weakens the "default-config" principle of §2, (c) Qdrant is what real Mem0 users actually deploy — the comparison reflects the production system, not a contortion to dodge a Bun bug.
 
 ## Forward path
 

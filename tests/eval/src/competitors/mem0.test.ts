@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Memory as Mem0Memory, MemoryItem, SearchResult } from 'mem0ai/oss'
-import { MEM0_TARGET_VERSION, Mem0Distiller } from './mem0'
+import { MEM0_TARGET_VERSION, Mem0Distiller, qdrantReachable } from './mem0'
 
 type AddCall = { messages: unknown; options: unknown }
 type GetAllCall = { options: unknown }
@@ -148,5 +148,34 @@ describe('Mem0Distiller', () => {
     const d = new Mem0Distiller({ memory })
     const out = await d.distill({ text: 'nothing memorable' })
     expect(out.extracted).toHaveLength(0)
+  })
+})
+
+describe('qdrantReachable', () => {
+  test('returns false when the URL is unreachable (no service listening)', async () => {
+    // Port 1 is privileged + unbound; this fails fast on every dev machine.
+    const reachable = await qdrantReachable('http://127.0.0.1:1', 250)
+    expect(reachable).toBe(false)
+  })
+
+  test('returns false when the host does not resolve', async () => {
+    const reachable = await qdrantReachable('http://qdrant-does-not-exist.invalid', 500)
+    expect(reachable).toBe(false)
+  })
+
+  test('returns true against a stubbed 200 OK responder', async () => {
+    const originalFetch = globalThis.fetch
+    let calledWith: string | undefined
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      calledWith = typeof url === 'string' ? url : url.toString()
+      return new Response('ready', { status: 200 })
+    }) as typeof globalThis.fetch
+    try {
+      const reachable = await qdrantReachable('http://qdrant.local:6333', 250)
+      expect(reachable).toBe(true)
+      expect(calledWith).toBe('http://qdrant.local:6333/readyz')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
