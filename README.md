@@ -4,7 +4,7 @@
 
 Your memory. Your keys. Every model. mneme is local-first by design, end-to-end encrypted by default, and built around an open protocol that any AI app can implement.
 
-> Status: pre-alpha. Protocol v0.1 draft and TypeScript SDK v0.0.x in active development. Not yet ready for production use.
+> Status: public beta. Protocol v0.1, SDK shipping on npm, dual-matcher benchmark live. Not yet ready for production-critical use.
 
 ---
 
@@ -21,6 +21,35 @@ Every existing AI memory product — Mem0, Letta, Zep, ChatGPT Memory, Claude Pr
 | What happens if you leave | "Export" to a dead file | Take your encrypted store anywhere |
 
 We compete on **whose memory it is**, not on whose retrieval scores half a point higher.
+
+> Mem0 helps agents remember users. mneme helps users own their memory.
+
+## What we've measured
+
+100 samples across six everyday contexts (slack, journal, meeting notes, personal chat, domain-specific, edge cases). Same models on both sides. Scored two ways: strict keyword match against expected facts, and an independent LLM judging semantic equivalence.
+
+| | mneme | [Mem0](https://github.com/mem0ai/mem0) v3.0.3 | Δ |
+| --- | ---: | ---: | ---: |
+| Semantic F1 (LLM judge) | 78.1% | 78.5% | tied |
+| Strict F1 (keyword) | **62.4%** | 8.5% | **+53.9 pts** |
+
+What this shows: at the content level mneme and Mem0 are effectively tied — both extract roughly the same underlying facts and the judge can't reliably tell them apart. The 53.9-point strict-match gap is **structural**: Mem0 paraphrases inputs into its own canonical form; mneme preserves the user's source language. Source preservation is what makes the next three things possible:
+
+- **Citations.** Surfaced memories trace back to what was actually said.
+- **Audit.** Compliance teams can verify the store against the source.
+- **Reproducibility.** Strict keyword match is deterministic; semantic similarity drifts as judge models improve.
+
+This is why "tied on semantic, ahead on strict" is the story we want — not "we beat Mem0 by N points." Mem0 can keep improving on semantic accuracy and we will too, but **the trust layer — faithful extraction, encryption at rest, user-held keys, portable across models — is structural to how mneme is built and isn't a parameter the alternative architectures can tune.**
+
+Methodology: dual-matcher evaluation in [ADR 0014](./decisions/0014-dual-matcher-evaluation.md); comparative-eval architecture in [ADR 0015](./decisions/0015-comparative-eval.md). Reproduce locally:
+
+```sh
+# Requires Docker (Qdrant) + ANTHROPIC_API_KEY + OPENAI_API_KEY
+docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
+bun run eval:baseline -- --distiller=mem0 --judge=claude
+```
+
+Raw baseline artefacts (per-category breakdowns, judge transcripts, JSON reports) ship under [`tests/eval/baselines/`](./tests/eval/baselines/). Letta and Zep adapters land next.
 
 ## Repository layout
 
