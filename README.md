@@ -56,11 +56,14 @@ bun add @mnemehq/embedder-local
 # Optional WebSocket transport for multi-device sync + pairing
 bun add @mnemehq/sync-websocket
 
+# Optional LLM-powered memory extraction (bring your own Anthropic key)
+bun add @mnemehq/distiller-claude
+
 # MCP server for Claude Code / Cursor / any MCP host — no install required
 npx @mnemehq/mcp-server
 ```
 
-All five packages are published to npm under `@mnemehq/*`. Requires [Bun](https://bun.sh) `>= 1.3` at runtime (the SDK and transports use `bun:sqlite` and Bun-native WebSockets).
+All packages are published to npm under `@mnemehq/*`. Requires [Bun](https://bun.sh) `>= 1.3` at runtime (the SDK and transports use `bun:sqlite` and Bun-native WebSockets).
 
 ## Quickstart
 

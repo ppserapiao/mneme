@@ -73,7 +73,7 @@ jobs:
       - name: L1 — publint (strict) every publishable package
         run: |
           set -e
-          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket packages/distiller-claude apps/mcp-server; do
             echo "::group::publint $pkg"
             bunx publint "$pkg" --strict
             echo "::endgroup::"
@@ -82,7 +82,7 @@ jobs:
       - name: L3 — verify-package tarball forensics on every publishable package
         run: |
           set -e
-          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket packages/distiller-claude apps/mcp-server; do
             echo "::group::verify-package $pkg"
             (cd "$pkg" && bun ../../scripts/verify-package.ts .)
             echo "::endgroup::"
@@ -91,7 +91,7 @@ jobs:
       - name: npm pack dry-run every publishable package (final safety)
         run: |
           set -e
-          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket apps/mcp-server; do
+          for pkg in packages/protocol packages/sdk packages/embedder-local packages/sync-websocket packages/distiller-claude apps/mcp-server; do
             echo "::group::npm pack --dry-run $pkg"
             (cd "$pkg" && npm pack --dry-run)
             echo "::endgroup::"

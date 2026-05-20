@@ -17,6 +17,15 @@ export { defaultStoragePath } from './util/path'
 
 export type { Embedder } from './embedder/types'
 
+export type {
+  Distiller,
+  DistillInput,
+  DistillOptions,
+  DistillOutput,
+  DistillResult,
+  ExtractedMemory,
+} from './distiller'
+
 export { DEFAULT_KDF_PARAMS } from './crypto'
 export type { KdfParams } from './crypto'
 
