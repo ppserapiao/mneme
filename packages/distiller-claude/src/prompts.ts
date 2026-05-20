@@ -31,9 +31,31 @@
  *                     input (recovers v2026-05-20b's lost recall on edge-005)
  *                 (g) new dense/abbreviated slack-style few-shot (different
  *                     texture from the structured pedro/sarah multi-voice one)
+ *                 F1=67.2% (+1.1pp over v2). edge-cases recovered to 80% ✓
+ *                 meeting-notes +9pp, personal-chat +5.7pp. Regressions:
+ *                 slack 46.2% → 20.0% (the dense standup few-shot perturbed
+ *                 how the model interprets slack inputs), domain-specific
+ *                 72.0% → 62.1% (collateral from the additional few-shots).
+ *   2026-05-20d — Phase 1.6: surgical revert + explicit slack rule.
+ *                 KEEP (e) and (f) — confirmed wins.
+ *                 REMOVE (g) — likely cause of slack's collapse. Hypothesis:
+ *                 with two slack-shaped few-shots competing for attention,
+ *                 the model started expecting slack inputs to be dense
+ *                 structured standups and under-extracted from simpler
+ *                 slack patterns (Friday-off preference, oncall context).
+ *                 (h) NEW dedicated "SLACK / TERSE MESSAGE RULE" section
+ *                     in the system prompt — explicit list of what counts
+ *                     as extractable in a brief Slack-style message
+ *                     (availability, work commitment, oncall responsibility,
+ *                     deadline correction, completed task, collaboration,
+ *                     recurring cadence). Counters the "brevity = marginal"
+ *                     misinterpretation that v3's "skip marginal" rule
+ *                     accidentally instilled. Rule-not-few-shot is
+ *                     deliberate: we want broad slack coverage, not narrow
+ *                     pattern-matching to one standup shape.
  */
 
-export const PROMPT_VERSION = '2026-05-20c'
+export const PROMPT_VERSION = '2026-05-20d'
 
 /**
  * The kinds we extract. Aligned to `MemoryKindSchema` from `@mnemehq/protocol`:
@@ -100,6 +122,21 @@ QUANTITY — PREFER SKIPPING MARGINAL EXTRACTIONS
 - One sharply-written memory that covers two related facts beats two thin memories splitting hairs ("Lives in London and works in product" is also acceptable when the speaker treats them as a single signal — but it's not REQUIRED to combine them).
 - If the input contains nothing memorable about the speaker, return an empty list. Quality > quantity.
 
+SLACK / TERSE MESSAGE RULE
+Slack-style and chat-style messages are often short, abbreviated, and missing full grammar. Brevity is NOT a signal of low confidence. The model should NOT treat a short message as marginal just because it lacks formal prose.
+
+Extract whenever the speaker makes a concrete statement about ANY of:
+- an availability pattern ("takes Fridays off", "OOO next week")
+- a work commitment or deliverable ("I'll rework the empty state by end of week")
+- an oncall / schedule responsibility ("backup oncall Friday")
+- a corrected deadline or fact ("actually scratch that, deadline is Dec 18 not Dec 21")
+- a completed task ("closed three tickets", "shipped the redesign")
+- a collaboration with a named person ("paired with Karim on the auth refactor")
+- a recurring cadence or meeting they've committed to ("Mondays at 11 for design crit")
+- a tool / channel / platform they've chosen to use ("moving from email to Slack for X")
+
+Skip a terse message only if it is pure reaction, pure question, joke, acknowledgement, or contains no durable fact about the speaker.
+
 CALL THE TOOL. Do not respond with prose.`
 
 /**
@@ -107,13 +144,16 @@ CALL THE TOOL. Do not respond with prose.`
  * sees real input → expected tool call mappings. Marked cacheable by the
  * adapter on every request.
  *
- * Seven examples covering: single-author preference update, single-author
+ * Six examples covering: single-author preference update, single-author
  * relationship statement, single-author skill/context, MULTI-VOICE SLACK-
  * STYLE THREAD (added in 2026-05-20b — targets slack), TECHNICAL STACK
- * extraction (added in 2026-05-20b — targets domain-specific), EXPLICIT
- * REPETITION (added in 2026-05-20c — recovers edge-cases regression), and
- * DENSE ABBREVIATED STANDUP (added in 2026-05-20c — pushes slack harder
- * with a different texture from the structured multi-voice example).
+ * extraction (added in 2026-05-20b — targets domain-specific), and
+ * EXPLICIT REPETITION (added in 2026-05-20c — recovers edge-cases regression).
+ *
+ * The "dense abbreviated standup" example added in 2026-05-20c was removed
+ * in 2026-05-20d after measurement showed it collapsed slack F1 from
+ * 46.2% to 20.0% — two slack-shaped few-shots competed for attention and
+ * narrowed the model's expectation of slack inputs unhelpfully.
  */
 export const FEW_SHOT_EXAMPLES = [
   {
@@ -233,35 +273,6 @@ export const FEW_SHOT_EXAMPLES = [
         body: 'Works in product',
         confidence: 0.95,
         sourceContext: 'I work in product',
-      },
-    ],
-  },
-  {
-    user: 'Speaker: pedro\n\nstandup yest — closed 3 tickets, paired w/ karim on auth refactor, deployed staging. today — finishing migration, design review at 3. blockers — none.',
-    extracted: [
-      {
-        kind: 'event',
-        body: 'Closed three tickets yesterday',
-        confidence: 0.95,
-        sourceContext: 'closed 3 tickets',
-      },
-      {
-        kind: 'event',
-        body: 'Paired with Karim on the auth refactor yesterday',
-        confidence: 0.95,
-        sourceContext: 'paired w/ karim on auth refactor',
-      },
-      {
-        kind: 'context',
-        body: 'Finishing the migration today; design review at 3pm',
-        confidence: 0.9,
-        sourceContext: 'finishing migration, design review at 3',
-      },
-      {
-        kind: 'relationship',
-        body: 'Karim is a pairing collaborator on the auth refactor',
-        confidence: 0.85,
-        sourceContext: 'paired w/ karim',
       },
     ],
   },
