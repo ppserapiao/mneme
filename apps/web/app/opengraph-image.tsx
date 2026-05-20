@@ -23,7 +23,10 @@ async function loadGoogleFont(family: string, weight = 400, italic = false): Pro
   const css = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
   }).then((r) => r.text())
-  const fontUrl = css.match(/src:\s*url\((https:\/\/[^)]+\.woff2?)\)/)?.[1]
+  // Google Fonts CSS serves .ttf to generic UAs (us) and .woff2 to known
+  // browser UAs — match any font extension so we don't break on the next
+  // server-side User-Agent we pretend to be. Satori handles both formats.
+  const fontUrl = css.match(/src:\s*url\((https:\/\/[^)]+)\)/)?.[1]
   if (!fontUrl) {
     throw new Error(`Failed to resolve font URL for ${family} (italic=${italic}, weight=${weight})`)
   }
