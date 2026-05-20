@@ -1,0 +1,69 @@
+name: eval-regression
+
+# Triggers (kept narrow because each run costs ~$2-3 in Anthropic + OpenAI spend):
+#   - PR that touches the prompt file, corpus, eval source, or this workflow
+#   - Weekly cron (Monday 12:00 UTC) to catch model-drift between PRs
+#   - Manual dispatch (admin)
+on:
+  pull_request:
+    paths:
+      - "packages/distiller-claude/src/prompts.ts"
+      - "packages/distiller-claude/src/**"
+      - "tests/eval/corpus/**"
+      - "tests/eval/src/**"
+      - "tests/eval/baselines/**"
+      - ".github/workflows/eval-regression.yml"
+      - "scripts/check-eval-regression.ts"
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  eval:
+    name: live eval against mneme baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Required secrets in repo settings:
+    #   ANTHROPIC_API_KEY  — used by the distiller + the judge
+    #   OPENAI_API_KEY     — used by the (Mem0) embedder; safe to set even when
+    #                        only running the mneme distiller, the env is read
+    #                        opportunistically.
+    # Without these, the job will fail at the eval step with a helpful message.
+    if: vars.ENABLE_EVAL_GATE == 'true' || github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build publishable packages
+        run: bun run build
+
+      - name: Run mneme eval against the 100-sample corpus
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        # Cap spend at $4 — well below the standard $5 default but tighter for
+        # CI to avoid runaway cost on a stuck prompt.
+        run: bun run eval:live -- --judge=claude --max-cost-usd=4
+
+      - name: Compare against committed baseline
+        run: bun run scripts/check-eval-regression.ts
+
+      - name: Upload eval report as artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: tests/eval/reports/*.json
+          retention-days: 30
