@@ -8,6 +8,7 @@ import type {
 } from '@mnemehq/protocol'
 import { MnemeError, OwnerIdSchema } from '@mnemehq/protocol'
 import { type KdfParams, toBase64Url } from './crypto'
+import type { DistillInput, DistillOptions, DistillResult, Distiller } from './distiller/types'
 import type { Embedder } from './embedder/types'
 import type {
   AcceptedPairing,
@@ -42,6 +43,16 @@ export type MnemeOptions = {
    * against any provider.
    */
   embedder?: Embedder
+  /**
+   * Optional LLM-powered distiller. When configured, `mneme.distill(text)`
+   * extracts structured memories from raw text and fans out to `remember()`
+   * for each one above the confidence threshold (ADR 0012).
+   *
+   * Install `@mnemehq/distiller-claude` for an Anthropic-backed adapter
+   * (BYO Anthropic API key), or implement the `Distiller` interface against
+   * any provider.
+   */
+  distiller?: Distiller
 }
 
 export type EncryptedMnemeOptions = MnemeOptions & {
@@ -106,6 +117,7 @@ export type InitializeResult = {
 export class Mneme {
   private readonly store: SqliteStore
   private readonly ownerId: OwnerId
+  private readonly distiller: Distiller | undefined
 
   constructor(options: MnemeOptions = {}) {
     if ((options as EncryptedMnemeOptions).passphrase !== undefined) {
@@ -121,6 +133,7 @@ export class Mneme {
       )
     }
     this.ownerId = OwnerIdSchema.parse(options.ownerId ?? 'local')
+    this.distiller = options.distiller
     this.store = new SqliteStore({
       path: options.path ?? defaultStoragePath(),
       ...(options.clock ? { clock: options.clock } : {}),
@@ -211,6 +224,62 @@ export class Mneme {
       body: { mode: 'plaintext', data: input.body },
       ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
     })
+  }
+
+  /**
+   * LLM-powered memory extraction (ADR 0012). Pass raw text — a conversation
+   * transcript, a meeting note, a Slack thread, a journal entry — and the
+   * configured `Distiller` extracts structured memories and persists each one
+   * above the confidence threshold via `remember()`.
+   *
+   * Requires a `distiller` to have been supplied at construction time, e.g.
+   *
+   * ```ts
+   * import { ClaudeDistiller } from '@mnemehq/distiller-claude'
+   * const mneme = await Mneme.open({
+   *   passphrase: '...',
+   *   distiller: new ClaudeDistiller({ apiKey: process.env.ANTHROPIC_KEY }),
+   * })
+   * await mneme.distill('Had a great espresso on Brick Lane — single-origin only please')
+   * ```
+   *
+   * Throws `invalid_record` if no distiller is configured or if `text` is
+   * empty. Errors raised by the adapter (rate-limited, malformed response,
+   * network) are propagated unchanged so the caller sees the underlying cause.
+   */
+  async distill(text: string, options: DistillOptions = {}): Promise<DistillResult<MemoryRecord>> {
+    if (!this.distiller) {
+      throw new MnemeError(
+        'invalid_record',
+        'Mneme.distill requires a `distiller` option. Install @mnemehq/distiller-claude (or equivalent) and pass it to the constructor / Mneme.open / Mneme.initialize.',
+      )
+    }
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      throw new MnemeError('invalid_record', 'Mneme.distill: text must be a non-empty string')
+    }
+    const minConfidence = options.minConfidence ?? 0.5
+    const distillInput: DistillInput = {
+      text,
+      ...(options.hint ? { hint: options.hint } : {}),
+    }
+    const output = await this.distiller.distill(distillInput)
+    const written: MemoryRecord[] = []
+    let skipped = 0
+    for (const extracted of output.extracted) {
+      if (extracted.confidence < minConfidence) {
+        skipped++
+        continue
+      }
+      const record = await this.remember({
+        kind: extracted.kind,
+        body: extracted.body,
+        confidence: extracted.confidence,
+        ...(options.sourceApp ? { sourceApp: options.sourceApp } : {}),
+        ...(extracted.sourceContext ? { sourceContext: extracted.sourceContext } : {}),
+      })
+      written.push(record)
+    }
+    return { written, skipped, usage: output.usage, model: output.model }
   }
 
   /**

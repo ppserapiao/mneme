@@ -1,7 +1,7 @@
 {
-  "name": "@mnemehq/sdk",
-  "version": "0.1.2",
-  "description": "TypeScript SDK for the Mneme Protocol — local-first, user-sovereign memory for AI apps.",
+  "name": "@mnemehq/distiller-claude",
+  "version": "0.1.0",
+  "description": "Anthropic-backed memory distiller for @mnemehq/sdk. Bring your own Anthropic key; extract structured memories from raw text via Claude's tool-use API with prompt caching enabled by default.",
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
@@ -23,11 +23,11 @@
     "prepublishOnly": "bun run build && bun ../../scripts/verify-package.ts . && bunx publint . --strict"
   },
   "dependencies": {
-    "@mnemehq/protocol": "^0.1.1",
-    "@noble/curves": "^2.2.0",
-    "@noble/hashes": "^2.2.0",
-    "@scure/bip39": "^2.2.0",
-    "ulid": "^2.3.0"
+    "@anthropic-ai/sdk": "^0.40.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@mnemehq/sdk": "^0.1.2"
   },
   "publishConfig": {
     "access": "public"
@@ -35,7 +35,17 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ppserapiao/mneme.git",
-    "directory": "packages/sdk"
+    "directory": "packages/distiller-claude"
   },
-  "keywords": ["mneme", "memory", "ai", "sdk", "local-first", "sqlite"]
+  "keywords": [
+    "mneme",
+    "memory",
+    "ai",
+    "anthropic",
+    "claude",
+    "llm",
+    "extraction",
+    "distillation",
+    "tool-use"
+  ]
 }

@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const SCENARIO_COUNT = 6
+const SCENARIO_COUNT = 7
 const KEEP_WORKDIR = process.argv.includes('--keep')
 const ORIGIN = resolve(import.meta.dir, 'smoke')
 
@@ -140,6 +140,7 @@ for (const file of [
   'recovery.ts',
   'device-a.ts',
   'device-b.ts',
+  'distill.ts',
 ]) {
   const src = `${ORIGIN}/${file}`
   if (!existsSync(src)) {
@@ -375,6 +376,52 @@ await step(
     return { aliceCount, bobCount }
   },
 )
+
+// 7. Distiller end-to-end (mock by default; live Claude when ANTHROPIC_API_KEY set).
+// `@mnemehq/distiller-claude` is installed lazily — if not yet published to
+// npm (this happens transiently on the PR that introduces it), the scenario
+// is skipped cleanly with a clear `[SKIP]` marker rather than a failure.
+await step(7, 'distiller — extract memories from raw text and persist via remember()', async () => {
+  const installResult = await runBun(['add', '@mnemehq/distiller-claude'], { cwd: workdir })
+  if (installResult.exitCode !== 0) {
+    return {
+      ok: false,
+      detail:
+        '@mnemehq/distiller-claude not installable from npm (probably not yet published). Re-run `bun run smoke` after publish.',
+    }
+  }
+  const mode = process.env.ANTHROPIC_API_KEY ? 'live (Anthropic)' : 'mock'
+  const passEnv: Record<string, string> = {}
+  if (process.env.ANTHROPIC_API_KEY) passEnv.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+  const { stdout, stderr, exitCode } = await runBun(['run', 'distill.ts'], {
+    cwd: workdir,
+    env: passEnv,
+  })
+  if (exitCode !== 0) {
+    return { ok: false, detail: `distill.ts (${mode}) exited ${exitCode}\n${stderr}` }
+  }
+  const result = parseLastJsonLine(stdout) as {
+    mode: 'mock' | 'live'
+    distillerName: string
+    writtenCount: number
+    skipped: number
+    costUsdEstimate: number
+    recallTopBody: string
+  }
+  if (result.writtenCount < 2) {
+    return {
+      ok: false,
+      detail: `distiller wrote ${result.writtenCount} memories, expected ≥ 2`,
+    }
+  }
+  if (!result.recallTopBody) {
+    return {
+      ok: false,
+      detail: 'recall on distilled store returned no plaintext body — round-trip broken',
+    }
+  }
+  return result
+})
 
 // ─── teardown ─────────────────────────────────────────────────────────────
 for (const p of [aliceProc, bobProc]) {

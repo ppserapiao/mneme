@@ -40,3 +40,4 @@ Briefly, with the reason each was rejected.
 | 0009  | [Multi-device pairing ceremony](./0009-multi-device-pairing-ceremony.md) | Accepted |
 | 0010  | [WebSocket transport for sync and pairing](./0010-websocket-transport.md) | Accepted |
 | 0011  | [npm publishing strategy](./0011-npm-publishing.md) | Accepted |
+| 0012  | [Distiller architecture (LLM-powered memory extraction)](./0012-distiller-architecture.md) | Accepted |
