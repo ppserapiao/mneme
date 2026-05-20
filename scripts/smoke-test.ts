@@ -404,6 +404,7 @@ await step(7, 'distiller — extract memories from raw text and persist via reme
     mode: 'mock' | 'live'
     distillerName: string
     writtenCount: number
+    persistedCount: number
     skipped: number
     costUsdEstimate: number
     recallTopBody: string
@@ -414,10 +415,17 @@ await step(7, 'distiller — extract memories from raw text and persist via reme
       detail: `distiller wrote ${result.writtenCount} memories, expected ≥ 2`,
     }
   }
+  if (result.persistedCount < result.writtenCount) {
+    return {
+      ok: false,
+      detail: `round-trip broken: distill() reported ${result.writtenCount} written but exportAll() found ${result.persistedCount}`,
+    }
+  }
   if (!result.recallTopBody) {
     return {
       ok: false,
-      detail: 'recall on distilled store returned no plaintext body — round-trip broken',
+      detail:
+        'exportAll on distilled store returned no plaintext body — encryption envelope may be returning ciphertext',
     }
   }
   return result

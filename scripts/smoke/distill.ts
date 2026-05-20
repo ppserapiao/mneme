@@ -7,7 +7,10 @@
  *   - SDK exports the Distiller interface
  *   - ClaudeDistiller satisfies the interface and can be passed in
  *   - distill() fans extracted memories out to remember()
- *   - Persisted memories survive a recall() round-trip
+ *   - The encrypted store actually persisted them (verified via exportAll;
+ *     recall is not used here because this scenario runs without an embedder
+ *     and the SDK correctly refuses lexical FTS5 search over ciphertext —
+ *     recall quality is the eval harness's job, not the smoke's)
  *
  * Modes:
  *   - DEFAULT (no env): uses a deterministic mock distiller. Runs in CI, never
@@ -92,14 +95,21 @@ const { mneme } = await Mneme.initialize({
 
 const result = await mneme.distill(SAMPLE_TEXT, { sourceApp: 'smoke-test', minConfidence: 0.5 })
 
-// Confirm at least one extracted memory ended up in the store with recall.
-const matches = await mneme.recall('coffee')
-const recallTopBody =
-  matches[0]?.record.body &&
-  'mode' in matches[0].record.body &&
-  matches[0].record.body.mode === 'plaintext'
-    ? matches[0].record.body.data
-    : ''
+// Confirm the extracted memories were actually persisted by iterating the
+// encrypted store. We deliberately use exportAll() (not recall()) for the
+// round-trip check because this scenario runs without an embedder — and the
+// SDK correctly refuses lexical FTS5 search over ciphertext. Recall quality
+// is the job of the eval harness (ADR 0013), not this smoke; here we just
+// want to prove that what distill() wrote, the store remembers.
+let persistedCount = 0
+let recallTopBody = ''
+for await (const record of mneme.exportAll()) {
+  if (record.lifecycle?.forgottenAt) continue
+  persistedCount++
+  if (!recallTopBody && record.body && 'mode' in record.body && record.body.mode === 'plaintext') {
+    recallTopBody = record.body.data
+  }
+}
 
 mneme.close()
 
@@ -108,6 +118,7 @@ process.stdout.write(
     mode,
     distillerName: distiller.name,
     writtenCount: result.written.length,
+    persistedCount,
     skipped: result.skipped,
     costUsdEstimate: result.usage.costUsdEstimate,
     recallTopBody,
