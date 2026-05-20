@@ -20,9 +20,20 @@
  *                 (c) tightened "prefer skipping marginal extractions" guidance
  *                     to curb journal/meeting-notes over-extraction (v1 FP > FN)
  *                 (d) explicit instruction to read `speakerLabel` hint when present
+ *                 F1=66.1% (+9.4pp over v1). Big wins: domain-specific (+27pp),
+ *                 meeting-notes (+11pp). Regression: edge-cases (-30pp) — the
+ *                 "skip marginal" rule was applied too broadly, dropping
+ *                 legitimate explicit-but-simple extractions.
+ *   2026-05-20c — Phase 1.5: recover the edge-cases regression + push slack.
+ *                 (e) QUANTITY rule scoped to INFERRED extractions only —
+ *                     explicit statements always extract regardless of simplicity
+ *                 (f) new edge-case few-shot showing extraction from a repetition
+ *                     input (recovers v2026-05-20b's lost recall on edge-005)
+ *                 (g) new dense/abbreviated slack-style few-shot (different
+ *                     texture from the structured pedro/sarah multi-voice one)
  */
 
-export const PROMPT_VERSION = '2026-05-20b'
+export const PROMPT_VERSION = '2026-05-20c'
 
 /**
  * The kinds we extract. Aligned to `MemoryKindSchema` from `@mnemehq/protocol`:
@@ -84,9 +95,9 @@ CONFIDENCE RUBRIC (use these as anchors)
 - below 0.50  do not include; the SDK threshold defaults to 0.5
 
 QUANTITY — PREFER SKIPPING MARGINAL EXTRACTIONS
-- Aim for the SMALLEST number of memories that captures the durable signal.
-- An extraction at confidence ~0.55 is a candidate for SKIPPING, not for inclusion. Lean restrictive when the signal is weak.
-- One sharply-written memory that covers two related facts beats two thin memories splitting hairs ("Lives in London and works in product" beats "Lives in London" + "Works in product" unless the speaker treats them as separable signals).
+- This rule applies to INFERRED extractions only. If the speaker EXPLICITLY states a fact about themselves — even a simple one, even one stated twice — always extract it. "I'm in London. I work in product." is two explicit facts and warrants two extractions, not zero.
+- For inferred extractions at confidence ~0.55, lean toward SKIPPING rather than including. Weak inferences accumulate noise.
+- One sharply-written memory that covers two related facts beats two thin memories splitting hairs ("Lives in London and works in product" is also acceptable when the speaker treats them as a single signal — but it's not REQUIRED to combine them).
 - If the input contains nothing memorable about the speaker, return an empty list. Quality > quantity.
 
 CALL THE TOOL. Do not respond with prose.`
@@ -96,11 +107,13 @@ CALL THE TOOL. Do not respond with prose.`
  * sees real input → expected tool call mappings. Marked cacheable by the
  * adapter on every request.
  *
- * Five examples covering: single-author preference update, single-author
- * relationship statement, single-author skill/context, MULTI-VOICE
- * SLACK-STYLE THREAD (new in 2026-05-20b — targets v1's worst category),
- * and TECHNICAL STACK extraction (new in 2026-05-20b — targets v1's second-
- * worst category).
+ * Seven examples covering: single-author preference update, single-author
+ * relationship statement, single-author skill/context, MULTI-VOICE SLACK-
+ * STYLE THREAD (added in 2026-05-20b — targets slack), TECHNICAL STACK
+ * extraction (added in 2026-05-20b — targets domain-specific), EXPLICIT
+ * REPETITION (added in 2026-05-20c — recovers edge-cases regression), and
+ * DENSE ABBREVIATED STANDUP (added in 2026-05-20c — pushes slack harder
+ * with a different texture from the structured multi-voice example).
  */
 export const FEW_SHOT_EXAMPLES = [
   {
@@ -203,6 +216,52 @@ export const FEW_SHOT_EXAMPLES = [
         body: 'Prefers Solid over React for new projects, citing the reactivity model',
         confidence: 0.9,
         sourceContext: "Solid's reactivity model is way nicer",
+      },
+    ],
+  },
+  {
+    user: "Quick reminder to myself: I'm in London. I work in product. I'm in London and I work in product. Mostly writing this so my future self knows nothing has changed.",
+    extracted: [
+      {
+        kind: 'fact',
+        body: 'Lives in London',
+        confidence: 0.95,
+        sourceContext: "I'm in London",
+      },
+      {
+        kind: 'fact',
+        body: 'Works in product',
+        confidence: 0.95,
+        sourceContext: 'I work in product',
+      },
+    ],
+  },
+  {
+    user: 'Speaker: pedro\n\nstandup yest — closed 3 tickets, paired w/ karim on auth refactor, deployed staging. today — finishing migration, design review at 3. blockers — none.',
+    extracted: [
+      {
+        kind: 'event',
+        body: 'Closed three tickets yesterday',
+        confidence: 0.95,
+        sourceContext: 'closed 3 tickets',
+      },
+      {
+        kind: 'event',
+        body: 'Paired with Karim on the auth refactor yesterday',
+        confidence: 0.95,
+        sourceContext: 'paired w/ karim on auth refactor',
+      },
+      {
+        kind: 'context',
+        body: 'Finishing the migration today; design review at 3pm',
+        confidence: 0.9,
+        sourceContext: 'finishing migration, design review at 3',
+      },
+      {
+        kind: 'relationship',
+        body: 'Karim is a pairing collaborator on the auth refactor',
+        confidence: 0.85,
+        sourceContext: 'paired w/ karim',
       },
     ],
   },
