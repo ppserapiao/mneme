@@ -25,24 +25,25 @@ Cost ceiling defaults to **$5** per run. Sonnet-with-prompt-caching pays roughly
 
 ```
 tests/eval/
-├── corpus/                    ← 6 categories × 5 samples each = 30 JSONL lines
-│   ├── personal-chat.jsonl
-│   ├── journal.jsonl
-│   ├── slack.jsonl
-│   ├── meeting-notes.jsonl
-│   ├── edge-cases.jsonl
-│   └── domain-specific.jsonl
+├── corpus/                    ← 6 categories, 100 samples, 222 expected memories
+│   ├── personal-chat.jsonl    ← 17 samples / 33 expected
+│   ├── journal.jsonl          ← 17 samples / 46 expected
+│   ├── slack.jsonl            ← 20 samples / 35 expected (deepest — slack is the genuine model weakness per dual-matcher baseline)
+│   ├── meeting-notes.jsonl    ← 17 samples / 47 expected
+│   ├── edge-cases.jsonl       ← 12 samples / 6 expected (negative tests; most expected are zero)
+│   └── domain-specific.jsonl  ← 17 samples / 55 expected (developer, designer, health, travel, family, finance, fitness, cooking, music, gaming, learning, legal)
 ├── baselines/                 ← committed reference reports (one per prompt × model)
 │   └── README.md              ← contract for baseline updates
 ├── reports/                   ← per-run JSON outputs (gitignored)
 └── src/
-    ├── types.ts               ← CorpusSample, ExpectedMemory, EvalReport, ...
+    ├── types.ts               ← CorpusSample, ExpectedMemory, EvalReport, ScoreBlock, ...
     ├── corpus.ts              ← JSONL loader + per-line validator
-    ├── matcher.ts             ← isMatch, greedy many-to-many assign, P/R/F1
-    ├── runner.ts              ← runEval — concurrency, cost budget, failure isolation
-    ├── reporter.ts            ← renderConsole, renderMarkdown, renderJson, diff
-    ├── cli.ts                 ← bun run eval entry point
-    └── *.test.ts              ← unit tests (mock distiller, no Anthropic calls)
+    ├── matcher.ts             ← Matcher interface, keywordMatcher, async assign(), metrics
+    ├── judge.ts               ← ClaudeJudgeMatcher (ADR 0014) — Anthropic-backed semantic equivalence
+    ├── runner.ts              ← runEval — concurrency, cost budget, dual-matcher scoring, failure isolation
+    ├── reporter.ts            ← renderConsole, renderMarkdown (dual-matcher side-by-side), renderJson, diff
+    ├── cli.ts                 ← bun run eval entry point with --judge=claude flag
+    └── *.test.ts              ← unit tests (mock distiller + stubbed Anthropic, no real API calls)
 ```
 
 ## Adding a corpus sample
