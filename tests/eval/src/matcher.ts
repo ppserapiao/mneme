@@ -6,6 +6,9 @@ import type { ExpectedMemory } from './types'
  *   - same `kind`
  *   - extracted body contains EVERY `mustInclude` substring (case-insensitive)
  *   - extracted body contains NONE of the `mustNotInclude` anti-patterns
+ *
+ * Synchronous, deterministic, free. Used directly by unit tests and as
+ * the body of the keyword `Matcher`.
  */
 export function isMatch(extracted: ExtractedMemory, expected: ExpectedMemory): boolean {
   if (extracted.kind !== expected.kind) return false
@@ -20,18 +23,55 @@ export function isMatch(extracted: ExtractedMemory, expected: ExpectedMemory): b
 }
 
 /**
- * Greedy many-to-many assignment between extracted and expected memories.
+ * Pluggable matcher strategy (ADR 0014). Two implementations ship:
  *
- * Walks expected[] in order; for each one finds the first unmatched extracted
- * that satisfies `isMatch`. Returns the index sets that paired up plus the
- * resulting TP / FP / FN counts.
+ *   - keywordMatcher — deterministic substring matching (used in CI)
+ *   - JudgeMatcher (see ./judge.ts) — LLM-backed semantic equivalence
  *
- * Greedy (not optimal) is the right choice here: extractions are usually
- * unambiguous about which expected they satisfy, and the corpus author can
- * always disambiguate by tightening `mustInclude`. An optimal bipartite
- * matcher (Hungarian algorithm) would be more correct in pathological cases
- * but adds complexity that won't pay for itself before the LLM-as-judge
- * upgrade in ADR 0013 §forward-path.
+ * Future extensions can drop in behind this interface without touching
+ * the runner: embedding-similarity, OpenAI-backed judge, local-llama,
+ * etc.
+ */
+export interface Matcher {
+  readonly name: string
+  match(extracted: ExtractedMemory, expected: ExpectedMemory): Promise<MatchResult>
+}
+
+export type MatchResult = {
+  /** True if the matcher considers the two memories equivalent. */
+  matched: boolean
+  /** Optional human-readable explanation (used by the judge matcher). */
+  reason?: string
+  /** Optional confidence in 0..1 (used by the judge matcher). */
+  confidence?: number
+}
+
+/**
+ * The original ADR-0013 matcher, wrapped as a {@link Matcher}. Pure
+ * synchronous logic under the hood (no I/O), so it's free to run on
+ * every eval invocation.
+ */
+export const keywordMatcher: Matcher = {
+  name: 'keyword',
+  async match(extracted, expected) {
+    return { matched: isMatch(extracted, expected) }
+  },
+}
+
+/**
+ * Greedy many-to-many assignment between extracted and expected memories
+ * using the supplied {@link Matcher}.
+ *
+ * Walks expected[] in order; for each one finds the first unmatched
+ * extracted that the matcher considers equivalent. Returns the index
+ * sets that paired up plus the resulting TP / FP / FN counts.
+ *
+ * Greedy (not optimal) is the right choice for v0.1 — extractions are
+ * usually unambiguous about which expected they satisfy, and the corpus
+ * author can always disambiguate by tightening `mustInclude`. An optimal
+ * bipartite matcher (Hungarian algorithm) would be more correct in
+ * pathological cases but adds complexity that won't pay for itself
+ * before the corpus grows past ~100 samples.
  */
 export type AssignmentResult = {
   /** Indices into expected[] that found a match. */
@@ -43,7 +83,11 @@ export type AssignmentResult = {
   fn: number
 }
 
-export function assign(extracted: ExtractedMemory[], expected: ExpectedMemory[]): AssignmentResult {
+export async function assign(
+  extracted: ExtractedMemory[],
+  expected: ExpectedMemory[],
+  matcher: Matcher = keywordMatcher,
+): Promise<AssignmentResult> {
   const usedExtracted = new Set<number>()
   const matchedExpected: number[] = []
   const matchedExtracted: number[] = []
@@ -55,7 +99,8 @@ export function assign(extracted: ExtractedMemory[], expected: ExpectedMemory[])
       if (usedExtracted.has(x)) continue
       const ex = extracted[x]
       if (!ex) continue
-      if (isMatch(ex, exp)) {
+      const result = await matcher.match(ex, exp)
+      if (result.matched) {
         usedExtracted.add(x)
         matchedExpected.push(e)
         matchedExtracted.push(x)
@@ -71,9 +116,9 @@ export function assign(extracted: ExtractedMemory[], expected: ExpectedMemory[])
 }
 
 /**
- * Compute precision, recall, F1 from raw counts. NaN-safe — returns 0 when
- * the denominator is 0 (which is the IR-conventional choice for "nothing
- * to measure" rather than propagating NaN through the report).
+ * Compute precision, recall, F1 from raw counts. NaN-safe — returns 0
+ * when the denominator is 0 (which is the IR-conventional choice for
+ * "nothing to measure" rather than propagating NaN through the report).
  */
 export function metrics(
   tp: number,

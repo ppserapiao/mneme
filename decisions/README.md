@@ -42,3 +42,4 @@ Briefly, with the reason each was rejected.
 | 0011  | [npm publishing strategy](./0011-npm-publishing.md) | Accepted |
 | 0012  | [Distiller architecture (LLM-powered memory extraction)](./0012-distiller-architecture.md) | Accepted |
 | 0013  | [Eval harness for distiller extraction quality](./0013-eval-harness.md) | Accepted |
+| 0014  | [Dual-matcher eval (keyword + LLM-as-judge)](./0014-eval-judge-mode.md) | Accepted |

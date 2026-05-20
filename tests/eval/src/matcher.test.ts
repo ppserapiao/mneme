@@ -55,14 +55,14 @@ describe('isMatch', () => {
   })
 })
 
-describe('assign — greedy many-to-many assignment', () => {
-  test('all-match — every expected matches some extracted, no extras', () => {
+describe('assign — greedy many-to-many assignment (keyword matcher)', () => {
+  test('all-match — every expected matches some extracted, no extras', async () => {
     const extracted = [
       ex('preference', 'Prefers single-origin coffee'),
       ex('fact', 'Lives in London'),
     ]
     const expected = [exp('preference', '...', ['single-origin']), exp('fact', '...', ['London'])]
-    const r = assign(extracted, expected)
+    const r = await assign(extracted, expected)
     expect(r.tp).toBe(2)
     expect(r.fp).toBe(0)
     expect(r.fn).toBe(0)
@@ -70,29 +70,29 @@ describe('assign — greedy many-to-many assignment', () => {
     expect(r.matchedExtracted).toEqual([0, 1])
   })
 
-  test('under-extraction — fewer extracted than expected gives FN', () => {
+  test('under-extraction — fewer extracted than expected gives FN', async () => {
     const extracted = [ex('fact', 'Lives in London')]
     const expected = [exp('fact', '...', ['London']), exp('preference', '...', ['coffee'])]
-    const r = assign(extracted, expected)
+    const r = await assign(extracted, expected)
     expect(r.tp).toBe(1)
     expect(r.fp).toBe(0)
     expect(r.fn).toBe(1)
   })
 
-  test('over-extraction — extra extracted memories with no expected counterpart give FP', () => {
+  test('over-extraction — extra extracted memories with no expected counterpart give FP', async () => {
     const extracted = [
       ex('fact', 'Lives in London'),
       ex('preference', 'Likes off-piste skiing'),
       ex('event', 'Visited the pub'),
     ]
     const expected = [exp('fact', '...', ['London'])]
-    const r = assign(extracted, expected)
+    const r = await assign(extracted, expected)
     expect(r.tp).toBe(1)
     expect(r.fp).toBe(2)
     expect(r.fn).toBe(0)
   })
 
-  test('one extracted is consumed by at most one expected (no double-counting)', () => {
+  test('one extracted is consumed by at most one expected (no double-counting)', async () => {
     // Two expected entries that COULD both match the same extracted memory.
     // Greedy assignment claims the first; the second falls through to FN.
     const extracted = [ex('fact', 'Lives in central London and works there')]
@@ -100,29 +100,50 @@ describe('assign — greedy many-to-many assignment', () => {
       exp('fact', 'lives in London', ['London']),
       exp('fact', 'works in central area', ['works']),
     ]
-    const r = assign(extracted, expected)
+    const r = await assign(extracted, expected)
     expect(r.tp).toBe(1)
     expect(r.fn).toBe(1)
     // The extracted memory accounted for one expected; not double-counted into FP
     expect(r.fp).toBe(0)
   })
 
-  test('empty corpus on both sides — clean zero result', () => {
-    const r = assign([], [])
+  test('empty corpus on both sides — clean zero result', async () => {
+    const r = await assign([], [])
     expect(r.tp).toBe(0)
     expect(r.fp).toBe(0)
     expect(r.fn).toBe(0)
   })
 
-  test('mustNotInclude correctly rejects misattributed extractions', () => {
+  test('mustNotInclude correctly rejects misattributed extractions', async () => {
     // The corpus expects a relationship memory about Tom that does NOT
     // claim something about Pedro. If the distiller fuses them, we want FN.
     const extracted = [ex('relationship', 'Tom and Pedro are close colleagues')]
     const expected = [exp('relationship', 'Tom is a contact', ['Tom'], ['Pedro'])]
-    const r = assign(extracted, expected)
+    const r = await assign(extracted, expected)
     expect(r.tp).toBe(0)
     expect(r.fp).toBe(1) // extracted didn't match → FP
     expect(r.fn).toBe(1) // expected wasn't satisfied → FN
+  })
+
+  test('accepts a custom Matcher and uses its decisions', async () => {
+    // A matcher that says yes to everything regardless of content. Useful
+    // for testing the assignment loop independently of any specific matcher.
+    const yesMatcher = {
+      name: 'yes',
+      async match() {
+        return { matched: true }
+      },
+    }
+    const r = await assign(
+      [ex('fact', 'anything'), ex('fact', 'else')],
+      [exp('preference', '...', ['mismatch'])],
+      yesMatcher,
+    )
+    // First expected matches the first extracted; the second extracted
+    // becomes FP since there's no other expected to claim it.
+    expect(r.tp).toBe(1)
+    expect(r.fp).toBe(1)
+    expect(r.fn).toBe(0)
   })
 })
 

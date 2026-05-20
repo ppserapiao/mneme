@@ -1,6 +1,6 @@
 import type { Distiller, ExtractedMemory } from '@mnemehq/sdk'
-import { assign, metrics } from './matcher'
-import type { AggregateMetrics, CorpusSample, EvalReport, SampleResult } from './types'
+import { type Matcher, assign, keywordMatcher, metrics } from './matcher'
+import type { AggregateMetrics, CorpusSample, EvalReport, SampleResult, ScoreBlock } from './types'
 
 export type RunEvalOptions = {
   /** The corpus to run. Loaded from `loadCorpus()` or constructed in tests. */
@@ -8,37 +8,43 @@ export type RunEvalOptions = {
   /** Distiller adapter under test. */
   distiller: Distiller
   /**
-   * Hard cap on USD spend. The runner skips any sample whose start would
-   * push cumulative cost over this number. Default Infinity (no cap).
+   * Optional semantic-equivalence judge (ADR 0014). When set, every sample
+   * is scored TWICE — once by the deterministic strict keyword matcher
+   * (always run) and once by this matcher. Both sets of metrics land in
+   * the same report so they can be compared side-by-side.
+   */
+  judge?: Matcher
+  /**
+   * Hard cap on USD spend (distillation only — judge cost is tracked
+   * separately on the report). Default Infinity (no cap).
    */
   maxCostUsd?: number
   /**
-   * How many samples to distill in parallel. Default 4 — conservative against
-   * Anthropic tier-1 rate limits. Set to 1 for sequential / deterministic runs.
+   * How many samples to distill in parallel. Default 4 — conservative
+   * against Anthropic tier-1 rate limits. Set to 1 for sequential /
+   * deterministic runs.
+   *
+   * Note: when judge is enabled, each sample's judge calls are issued
+   * SEQUENTIALLY within the sample so the prompt-cache hit rate stays high.
+   * Cross-sample parallelism still respects this knob.
    */
   concurrency?: number
-  /**
-   * Per-sample timeout in ms. Samples exceeding this are recorded as errors
-   * but do NOT abort the whole run. Default 60_000.
-   */
+  /** Per-sample timeout in ms (distillation + scoring). Default 60_000. */
   perSampleTimeoutMs?: number
-  /**
-   * Observability hook fired as each sample finishes (success or failure).
-   * Useful for live progress in the CLI.
-   */
+  /** Observability hook fired as each sample finishes. */
   onSampleComplete?: (result: SampleResult, index: number, total: number) => void
 }
 
 /**
  * Run the full eval. Returns a structured {@link EvalReport}. Never throws
  * for per-sample failures — those are recorded in the result with an `error`
- * field. Throws only for invariant violations (distiller object is broken,
- * corpus is empty, etc.).
+ * field. Throws only for invariant violations.
  */
 export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const {
     corpus,
     distiller,
+    judge,
     maxCostUsd = Number.POSITIVE_INFINITY,
     concurrency = 4,
     perSampleTimeoutMs = 60_000,
@@ -51,7 +57,8 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const startedAt = new Date().toISOString()
   const startMs = performance.now()
   const results: SampleResult[] = new Array(corpus.length)
-  let cumulativeCost = 0
+  let cumulativeDistillCost = 0
+  let cumulativeJudgeCost = 0
   let cursor = 0
   let aborted = false
 
@@ -62,11 +69,9 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
       const sample = corpus[index]
       if (!sample) continue
 
-      // Cost budget check — once exceeded, mark this AND every remaining
-      // sample as skipped so the report explains why nothing more ran.
-      // Workers continue iterating to drain the queue rather than exiting
-      // (which would leave gaps for other workers to backfill ambiguously).
-      if (aborted || cumulativeCost >= maxCostUsd) {
+      // Cost-budget check applies to distillation only. Once exceeded, every
+      // remaining sample is marked as skipped so the report tells the story.
+      if (aborted || cumulativeDistillCost >= maxCostUsd) {
         aborted = true
         results[index] = budgetSkipResult(sample, 'cost budget exceeded before this sample started')
         onSampleComplete?.(results[index] as SampleResult, index, corpus.length)
@@ -74,18 +79,22 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
       }
 
       const sampleStart = performance.now()
+      const emptyBlock: ScoreBlock = {
+        tp: 0,
+        fp: 0,
+        fn: sample.expected.length,
+        matchedExpected: [],
+        matchedExtracted: [],
+      }
       const result: SampleResult = {
         sampleId: sample.id,
         category: sample.category,
         extracted: [],
-        matchedExpected: [],
-        matchedExtracted: [],
-        tp: 0,
-        fp: 0,
-        fn: sample.expected.length,
+        strict: { ...emptyBlock, matchedExpected: [], matchedExtracted: [] },
         costUsdEstimate: 0,
         durationMs: 0,
       }
+      if (judge) result.judgeCostUsdEstimate = 0
 
       try {
         const output = await Promise.race([
@@ -94,13 +103,33 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
         ])
         result.extracted = output.extracted as ExtractedMemory[]
         result.costUsdEstimate = output.usage.costUsdEstimate
-        cumulativeCost += output.usage.costUsdEstimate
-        const assignment = assign(result.extracted, sample.expected)
-        result.matchedExpected = assignment.matchedExpected
-        result.matchedExtracted = assignment.matchedExtracted
-        result.tp = assignment.tp
-        result.fp = assignment.fp
-        result.fn = assignment.fn
+        cumulativeDistillCost += output.usage.costUsdEstimate
+
+        // Strict scoring — always runs, free, deterministic.
+        const strictAssign = await assign(result.extracted, sample.expected, keywordMatcher)
+        result.strict = {
+          tp: strictAssign.tp,
+          fp: strictAssign.fp,
+          fn: strictAssign.fn,
+          matchedExpected: strictAssign.matchedExpected,
+          matchedExtracted: strictAssign.matchedExtracted,
+        }
+
+        // Semantic scoring — opt-in via `judge`.
+        if (judge) {
+          const judgeCostBefore = readJudgeCost(judge)
+          const semanticAssign = await assign(result.extracted, sample.expected, judge)
+          result.semantic = {
+            tp: semanticAssign.tp,
+            fp: semanticAssign.fp,
+            fn: semanticAssign.fn,
+            matchedExpected: semanticAssign.matchedExpected,
+            matchedExtracted: semanticAssign.matchedExtracted,
+          }
+          const judgeCostDelta = readJudgeCost(judge) - judgeCostBefore
+          result.judgeCostUsdEstimate = roundCost(judgeCostDelta)
+          cumulativeJudgeCost += judgeCostDelta
+        }
       } catch (err) {
         result.error = err instanceof Error ? err.message : String(err)
       }
@@ -114,7 +143,6 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const workers = Array.from({ length: Math.min(concurrency, corpus.length) }, () => worker())
   await Promise.all(workers)
 
-  // Backfill any missing slots (shouldn't happen, but defence in depth)
   for (let i = 0; i < corpus.length; i++) {
     const s = corpus[i]
     if (!s) continue
@@ -128,33 +156,48 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
 
   const finishedAt = new Date().toISOString()
   const durationMs = Math.round(performance.now() - startMs)
+  const usingJudge = judge !== undefined
 
-  return {
+  const report: EvalReport = {
     startedAt,
     finishedAt,
     promptVersion: distillerPromptVersion(distiller),
     model: distiller.model,
     distillerName: distiller.name,
     durationMs,
-    totalCostUsdEstimate: roundCost(cumulativeCost),
+    totalCostUsdEstimate: roundCost(cumulativeDistillCost),
     samples: results,
-    overall: aggregate(results),
-    byCategory: aggregateByCategory(results),
+    strict: aggregate(results, 'strict'),
+    strictByCategory: aggregateByCategory(results, 'strict'),
+    ...(usingJudge
+      ? {
+          semantic: aggregate(results, 'semantic'),
+          semanticByCategory: aggregateByCategory(results, 'semantic'),
+          judge: {
+            name: judge.name,
+            model: judgeModel(judge),
+            totalCostUsdEstimate: roundCost(cumulativeJudgeCost),
+          },
+        }
+      : {}),
   }
+  return report
 }
 
-function aggregate(results: SampleResult[]): AggregateMetrics {
+function aggregate(results: SampleResult[], which: 'strict' | 'semantic'): AggregateMetrics {
   let tp = 0
   let fp = 0
   let fn = 0
   let expectedTotal = 0
   let extractedTotal = 0
   for (const r of results) {
-    tp += r.tp
-    fp += r.fp
-    fn += r.fn
+    const block = which === 'strict' ? r.strict : r.semantic
+    if (!block) continue
+    tp += block.tp
+    fp += block.fp
+    fn += block.fn
     extractedTotal += r.extracted.length
-    expectedTotal += r.tp + r.fn
+    expectedTotal += block.tp + block.fn
   }
   const { precision, recall, f1 } = metrics(tp, fp, fn)
   return {
@@ -170,7 +213,10 @@ function aggregate(results: SampleResult[]): AggregateMetrics {
   }
 }
 
-function aggregateByCategory(results: SampleResult[]): Record<string, AggregateMetrics> {
+function aggregateByCategory(
+  results: SampleResult[],
+  which: 'strict' | 'semantic',
+): Record<string, AggregateMetrics> {
   const buckets = new Map<string, SampleResult[]>()
   for (const r of results) {
     const arr = buckets.get(r.category) ?? []
@@ -178,7 +224,7 @@ function aggregateByCategory(results: SampleResult[]): Record<string, AggregateM
     buckets.set(r.category, arr)
   }
   const out: Record<string, AggregateMetrics> = {}
-  for (const [category, arr] of buckets) out[category] = aggregate(arr)
+  for (const [category, arr] of buckets) out[category] = aggregate(arr, which)
   return out
 }
 
@@ -187,11 +233,7 @@ function budgetSkipResult(sample: CorpusSample, errMsg: string): SampleResult {
     sampleId: sample.id,
     category: sample.category,
     extracted: [],
-    matchedExpected: [],
-    matchedExtracted: [],
-    tp: 0,
-    fp: 0,
-    fn: sample.expected.length,
+    strict: { tp: 0, fp: 0, fn: sample.expected.length, matchedExpected: [], matchedExtracted: [] },
     costUsdEstimate: 0,
     durationMs: 0,
     error: errMsg,
@@ -204,14 +246,19 @@ function timeoutAfter(ms: number, sampleId: string): Promise<never> {
   )
 }
 
-/**
- * Best-effort prompt-version lookup. We don't want to hard-require the
- * adapter to expose this — for tests with a mock distiller we accept that
- * the report has `promptVersion: 'unknown'`.
- */
 function distillerPromptVersion(distiller: Distiller): string {
   const maybeVersion = (distiller as unknown as { promptVersion?: string }).promptVersion
   return typeof maybeVersion === 'string' && maybeVersion.length > 0 ? maybeVersion : 'unknown'
+}
+
+function readJudgeCost(judge: Matcher): number {
+  const maybe = (judge as unknown as { totalCostUsdEstimate?: number }).totalCostUsdEstimate
+  return typeof maybe === 'number' ? maybe : 0
+}
+
+function judgeModel(judge: Matcher): string {
+  const maybe = (judge as unknown as { model?: string }).model
+  return typeof maybe === 'string' ? maybe : 'unknown'
 }
 
 function roundCost(n: number): number {
