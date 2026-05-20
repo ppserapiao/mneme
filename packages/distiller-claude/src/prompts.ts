@@ -36,14 +36,23 @@
  *                 slack 46.2% → 20.0% (the dense standup few-shot perturbed
  *                 how the model interprets slack inputs), domain-specific
  *                 72.0% → 62.1% (collateral from the additional few-shots).
- *   2026-05-20d — Phase 1.6: surgical revert.
+ *   2026-05-20d — Phase 1.6: surgical revert + explicit slack rule.
  *                 KEEP (e) and (f) — confirmed wins.
  *                 REMOVE (g) — likely cause of slack's collapse. Hypothesis:
  *                 with two slack-shaped few-shots competing for attention,
  *                 the model started expecting slack inputs to be dense
  *                 structured standups and under-extracted from simpler
  *                 slack patterns (Friday-off preference, oncall context).
- *                 Net change vs v2: only the v3 wins survive.
+ *                 (h) NEW dedicated "SLACK / TERSE MESSAGE RULE" section
+ *                     in the system prompt — explicit list of what counts
+ *                     as extractable in a brief Slack-style message
+ *                     (availability, work commitment, oncall responsibility,
+ *                     deadline correction, completed task, collaboration,
+ *                     recurring cadence). Counters the "brevity = marginal"
+ *                     misinterpretation that v3's "skip marginal" rule
+ *                     accidentally instilled. Rule-not-few-shot is
+ *                     deliberate: we want broad slack coverage, not narrow
+ *                     pattern-matching to one standup shape.
  */
 
 export const PROMPT_VERSION = '2026-05-20d'
@@ -112,6 +121,21 @@ QUANTITY — PREFER SKIPPING MARGINAL EXTRACTIONS
 - For inferred extractions at confidence ~0.55, lean toward SKIPPING rather than including. Weak inferences accumulate noise.
 - One sharply-written memory that covers two related facts beats two thin memories splitting hairs ("Lives in London and works in product" is also acceptable when the speaker treats them as a single signal — but it's not REQUIRED to combine them).
 - If the input contains nothing memorable about the speaker, return an empty list. Quality > quantity.
+
+SLACK / TERSE MESSAGE RULE
+Slack-style and chat-style messages are often short, abbreviated, and missing full grammar. Brevity is NOT a signal of low confidence. The model should NOT treat a short message as marginal just because it lacks formal prose.
+
+Extract whenever the speaker makes a concrete statement about ANY of:
+- an availability pattern ("takes Fridays off", "OOO next week")
+- a work commitment or deliverable ("I'll rework the empty state by end of week")
+- an oncall / schedule responsibility ("backup oncall Friday")
+- a corrected deadline or fact ("actually scratch that, deadline is Dec 18 not Dec 21")
+- a completed task ("closed three tickets", "shipped the redesign")
+- a collaboration with a named person ("paired with Karim on the auth refactor")
+- a recurring cadence or meeting they've committed to ("Mondays at 11 for design crit")
+- a tool / channel / platform they've chosen to use ("moving from email to Slack for X")
+
+Skip a terse message only if it is pure reaction, pure question, joke, acknowledgement, or contains no durable fact about the speaker.
 
 CALL THE TOOL. Do not respond with prose.`
 
