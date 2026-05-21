@@ -155,7 +155,7 @@ If a check fails, fix the root cause. Do not skip hooks or disable the check.
 
 ### Eval harness (distiller extraction quality)
 
-`bun run eval` exercises the distiller against a curated 30-sample corpus under `tests/eval/corpus/` (6 categories: personal-chat, journal, slack, meeting-notes, edge-cases, domain-specific) and reports precision / recall / F1 per category and overall. **This is the artefact that turns "the distiller works" into "the distiller scores X on the canonical corpus"** — see ADR 0013 for full methodology.
+`bun run eval` exercises the distiller against a curated 100-sample corpus under `tests/eval/corpus/` (6 categories: personal-chat, journal, slack, meeting-notes, edge-cases, domain-specific; 222 expected memories) and reports precision / recall / F1 per category and overall. **This is the artefact that turns "the distiller works" into "the distiller scores X on the canonical corpus"** — see ADR 0013 for full methodology.
 
 ```sh
 # mneme's own distiller

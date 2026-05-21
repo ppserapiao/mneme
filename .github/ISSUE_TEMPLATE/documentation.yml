@@ -1,0 +1,32 @@
+name: Documentation
+description: Something in the docs is wrong, missing, unclear, or broken.
+title: "docs: <short description>"
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Docs are product at mneme. A confusing line in the README is a real bug. Thanks for flagging.
+
+  - type: input
+    id: location
+    attributes:
+      label: Where in the docs
+      description: Path + line, or a URL. E.g. `README.md` quickstart, `docs/protocol/v0.1.md` §3.
+      placeholder: "README.md quickstart, lines 90–110"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong or missing
+      description: Wrong code? Broken link? Outdated version? Confusing wording? Genuine gap?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix (optional)
+      description: If you have a concrete improvement in mind, drop it here. PRs welcome — small doc fixes merge fast.

@@ -1,0 +1,80 @@
+name: Bug report
+description: Something in mneme behaves incorrectly or crashes.
+title: "bug: <short description>"
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Before you continue:
+
+        - **Security vulnerability?** Do not file here — follow [`SECURITY.md`](https://github.com/ppserapiao/mneme/blob/main/SECURITY.md) for private disclosure.
+        - **Question about how to use mneme?** Use [Discussions](https://github.com/ppserapiao/mneme/discussions) instead.
+        - The more reproducible the report, the faster we can fix it.
+
+  - type: input
+    id: package
+    attributes:
+      label: Affected package + version
+      description: Which `@mnemehq/*` package and which version? Run `npm ls @mnemehq/sdk` (or the relevant package) in your project.
+      placeholder: "@mnemehq/sdk@0.1.2"
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime + OS
+      description: Output of `bun --version` (or `node --version`) and your OS.
+      placeholder: "bun 1.3.4, macOS 15.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include error messages or stack traces verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: |
+        Step-by-step, or a tiny code snippet, or a link to a public repo. The smaller the reproduction, the faster the fix.
+
+        For SDK bugs, a self-contained `repro.ts` script is ideal:
+        ```ts
+        import { Mneme } from '@mnemehq/sdk'
+        // ...
+        ```
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Anything in `console.error` output, `MNEME_DEBUG=1` traces, or stack traces.
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I've searched [existing issues](https://github.com/ppserapiao/mneme/issues?q=is%3Aissue) and this isn't a duplicate.
+          required: true
+        - label: I've read [`SECURITY.md`](https://github.com/ppserapiao/mneme/blob/main/SECURITY.md) and this is NOT a security vulnerability.
+          required: true

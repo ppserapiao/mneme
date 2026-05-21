@@ -32,8 +32,25 @@ const mono = JetBrains_Mono({
   display: 'swap',
 })
 
+// Site URL resolution. In order of precedence:
+//   1. NEXT_PUBLIC_SITE_URL — set explicitly (e.g. https://mneme.dev once that
+//      domain is wired up)
+//   2. VERCEL_PROJECT_PRODUCTION_URL — auto-injected by Vercel on the production
+//      deployment (no protocol)
+//   3. VERCEL_URL — auto-injected for preview deployments
+//   4. localhost fallback for dev
+// This means OG / Twitter previews resolve correctly on whichever URL the
+// deployment is actually served from — no hardcoded "mneme.dev" that 404s.
+const siteUrl = (() => {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:4321'
+})()
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://mneme.dev'),
+  metadataBase: new URL(siteUrl),
   title: {
     default: 'mneme — the open, user-sovereign memory layer for AI',
     template: '%s · mneme',
@@ -43,7 +60,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'mneme — the open, user-sovereign memory layer for AI',
     description: 'Memory that belongs to you. Local-first, end-to-end encrypted, cross-provider.',
-    url: 'https://mneme.dev',
+    url: siteUrl,
     siteName: 'mneme',
     type: 'website',
   },
@@ -51,6 +68,11 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'mneme — the open, user-sovereign memory layer for AI',
     description: 'Memory that belongs to you. Local-first, end-to-end encrypted, cross-provider.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
   },
 }
 

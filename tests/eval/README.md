@@ -19,7 +19,7 @@ export ANTHROPIC_API_KEY='sk-ant-...'
 bun run eval:live
 ```
 
-Cost ceiling defaults to **$5** per run. Sonnet-with-prompt-caching pays roughly £0.30-£0.60 for the full 30-sample corpus.
+Cost ceiling defaults to **$5** per run. Sonnet-with-prompt-caching pays roughly £0.30-£0.60 for the full 100-sample corpus.
 
 ### Comparative eval (vs Mem0, ADR 0015)
 
