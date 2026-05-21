@@ -1,0 +1,65 @@
+name: Feature request
+description: Suggest a new capability, API, or improvement.
+title: "feat: <short description>"
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for thinking about what mneme should be. Before you write:
+
+        - For changes to the **protocol** (`packages/protocol/`) or **encryption envelope**, we ask you to propose the change as a [Discussion](https://github.com/ppserapiao/mneme/discussions) first. Wire-format changes need an ADR and a version bump.
+        - For new SDK ergonomics, capability gaps, or quality-of-life improvements, file the request here.
+        - One feature per issue. Two ideas = two issues.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem you're trying to solve
+      description: What can you not do today? Or what's painful that should be easy? Concrete examples beat abstract requests.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would the API or behaviour look like? Even rough pseudocode is useful.
+      render: ts
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there workarounds? Things you've tried? Why don't they work?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Surface area
+      description: Where does this live?
+      options:
+        - SDK (`@mnemehq/sdk`)
+        - Protocol (`@mnemehq/protocol`)
+        - MCP server (`@mnemehq/mcp-server`)
+        - Embedder (`@mnemehq/embedder-local`)
+        - Sync / transport (`@mnemehq/sync-websocket`)
+        - Distiller (`@mnemehq/distiller-claude` or new)
+        - CLI / tooling
+        - Documentation
+        - Hosted Mneme Cloud (when it ships)
+        - Other (explain below)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I've searched [existing issues + discussions](https://github.com/ppserapiao/mneme/issues?q=is%3Aissue) and this isn't already proposed.
+          required: true
+        - label: This is genuinely a feature request, not a question about how to use mneme (those go in Discussions).
+          required: true

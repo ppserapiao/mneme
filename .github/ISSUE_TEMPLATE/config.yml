@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ppserapiao/mneme/security/advisories/new
+    about: Report a security vulnerability privately. Do NOT file a public issue. See SECURITY.md for the policy.
+  - name: General questions
+    url: https://github.com/ppserapiao/mneme/discussions
+    about: Ask in Discussions — good for "how do I do X", architectural questions, or sharing what you're building with mneme.
+  - name: Read the docs first
+    url: https://github.com/ppserapiao/mneme#readme
+    about: README, BRIEF, and ARCHITECTURE cover most install / usage / design questions.

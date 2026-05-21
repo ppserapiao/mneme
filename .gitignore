@@ -45,3 +45,6 @@ yarn-error.log*
 
 # Local Claude Code settings (per-user; project-wide settings.json may be committed)
 .claude/settings.local.json
+
+# Internal deep-overview reference (not for public distribution)
+OVERVIEW.md
