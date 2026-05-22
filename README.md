@@ -4,6 +4,8 @@
 
 Your memory. Your keys. Every model. mneme is local-first by design, end-to-end encrypted by default, and built around an open protocol that any AI app can implement.
 
+[Website](https://mneme-web-zeta.vercel.app) · [Discussions](https://github.com/ppserapiao/mneme/discussions) · [Security](./SECURITY.md) · [Contributing](./CONTRIBUTING.md) · [@ptengelmann](https://x.com/ptengelmann)
+
 > Status: public beta. Protocol v0.1, SDK shipping on npm, dual-matcher benchmark live. Not yet ready for production-critical use.
 
 ---

@@ -2661,8 +2661,8 @@ a:hover {
 }
 .editorial-colophon-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--mneme-space-7);
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--mneme-space-6);
   max-width: 1320px;
   margin: 0 auto;
 }
