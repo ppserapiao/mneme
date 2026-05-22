@@ -32,6 +32,17 @@ export function Colophon() {
           </a>
         </div>
         <div className="editorial-colophon-cell">
+          <span className="editorial-colophon-label">community</span>
+          <a
+            href="https://github.com/ppserapiao/mneme/discussions"
+            target="_blank"
+            rel="noreferrer"
+            className="editorial-colophon-value editorial-link"
+          >
+            github discussions
+          </a>
+        </div>
+        <div className="editorial-colophon-cell">
           <span className="editorial-colophon-label">contact</span>
           <a
             href="mailto:ptengelmann@gmail.com"
