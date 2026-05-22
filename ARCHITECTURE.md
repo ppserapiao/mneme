@@ -118,7 +118,7 @@ We will not pretend to have v3 cryptography on day one. We will document the v0 
 
 ## 6. The Mneme Protocol (the open spec)
 
-Published at `mneme.dev/protocol`. Versioned (semver). Vendor-neutral.
+Drafted in [`docs/protocol/`](./docs/protocol/) (v0.1, today). Versioned (semver). Vendor-neutral. Will move to a stable canonical URL when `mneme.dev` is provisioned.
 
 The protocol defines:
 
@@ -214,7 +214,7 @@ This is the "Postgres / Supabase" model: the engine is open, the managed service
 
 ## 10. Privacy and security posture
 
-- **Threat model published**: `mneme.dev/security/threat-model`. Includes what we protect against, what we don't, and where the residual risk sits.
+- **Threat model**: drafted in this file (see §5 and §11). Will move to a public, versioned page when `mneme.dev` is provisioned. Responsible-disclosure path is live now — see [`SECURITY.md`](./SECURITY.md).
 - **Quarterly third-party security audits** from launch onward; reports published.
 - **Bug bounty** via HackerOne from day one.
 - **No tracking on consumer app or browser extension**. Crash reports are opt-in and scrubbed.
