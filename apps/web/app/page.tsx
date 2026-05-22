@@ -1,27 +1,29 @@
-import { Architecture } from '@/components/Architecture'
-import { Benchmark } from '@/components/Benchmark'
-import { Footer } from '@/components/Footer'
-import { Hero } from '@/components/Hero'
-import { HeroDescription } from '@/components/HeroDescription'
-import { Install } from '@/components/Install'
-import { Nav } from '@/components/Nav'
-import { PullQuote } from '@/components/PullQuote'
-import { Thesis } from '@/components/Thesis'
+import { ArchitectureField } from '@/components/editorial/ArchitectureField'
+import { Colophon } from '@/components/editorial/Colophon'
+import { Cover } from '@/components/editorial/Cover'
+import { EditorialNav } from '@/components/editorial/EditorialNav'
+import { EvidenceTable } from '@/components/editorial/EvidenceTable'
+import { InstallSpec } from '@/components/editorial/InstallSpec'
+import { Lede } from '@/components/editorial/Lede'
+import { PullQuoteBig } from '@/components/editorial/PullQuoteBig'
+import { SidebarNav } from '@/components/editorial/SidebarNav'
+import { ThesisEssay } from '@/components/editorial/ThesisEssay'
 
 export default function Page() {
   return (
     <>
-      <Nav />
-      <main className="page">
-        <Hero />
-        <HeroDescription />
-        <Thesis />
-        <PullQuote />
-        <Benchmark />
-        <Install />
-        <Architecture />
+      <EditorialNav />
+      <SidebarNav />
+      <main className="editorial-page">
+        <Cover />
+        <Lede />
+        <EvidenceTable />
+        <ThesisEssay />
+        <ArchitectureField />
+        <InstallSpec />
+        <PullQuoteBig />
       </main>
-      <Footer />
+      <Colophon />
     </>
   )
 }
