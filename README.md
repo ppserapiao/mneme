@@ -115,10 +115,13 @@ await mneme.remember({
 // Body is sealed with AES-256-GCM on disk and signed with Ed25519.
 // Semantic recall finds it via embeddings computed pre-encryption.
 const matches = await mneme.recall('feedback style on pull requests')
+for (const { record, score } of matches) {
+  console.log(score.toFixed(2), record.kind, '—', record.body.data)
+}
 
 // Subsequent opens — passphrase or recovery phrase, both unlock the same store
-// const mneme = await Mneme.open({ passphrase: 'correct horse battery staple' })
-// const mneme = await Mneme.open({ recoveryPhrase: 'word word word …' })
+// const mneme = await Mneme.open({ path: './mneme.sqlite', passphrase: '…' })
+// const mneme = await Mneme.open({ path: './mneme.sqlite', recoveryPhrase: 'word word …' })
 ```
 
 Every concern — encryption, recovery, semantic recall, multi-device sync, device pairing — is independent and opt-in.
