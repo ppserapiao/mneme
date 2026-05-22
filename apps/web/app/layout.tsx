@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Instrument_Serif, JetBrains_Mono, Newsreader, Space_Grotesk } from 'next/font/google'
+import { Analytics } from '../components/Analytics'
 import './globals.css'
 
 const display = Instrument_Serif({
@@ -82,7 +83,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${display.variable} ${serif.variable} ${sans.variable} ${mono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }
